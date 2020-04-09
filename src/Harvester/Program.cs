@@ -8,6 +8,7 @@ using BloomHarvester.WebLibraryIntegration;
 using CommandLine;
 
 [assembly: InternalsVisibleTo("BloomHarvesterTests")]
+[assembly: InternalsVisibleTo("DynamicProxyGenAssembly2")]	// Needed for NSubstitute to create mock objects
 
 namespace BloomHarvester
 {
@@ -76,7 +77,7 @@ namespace BloomHarvester
 			}
 			catch (Exception e)
 			{
-				YouTrackIssueConnector.ReportExceptionToYouTrack(e, "An exception was thrown which was not handled by the program.", null, EnvironmentSetting.Unknown);
+				YouTrackIssueConnector.Instance.ReportException(e, "An exception was thrown which was not handled by the program.", null, EnvironmentSetting.Unknown);
 				throw;
 			}
 		}
@@ -130,6 +131,9 @@ namespace BloomHarvester
 
 		[Option("skipUploadThumbnails", Required = false, Default = false, HelpText = "If true, will prevent new thumbnails from being created and uploaded.")]
 		public bool SkipUploadThumbnails { get; set; }
+
+		[Option("skipUpdatePerceptualHash", Required = false, Default = false, HelpText = "If true, will prevent perceptual hash from being created and uploaded.")]
+		public bool SkipUpdatePerceptualHash{ get; set; }
 
 		[Option("skipUpdateMetadata", Required = false, Default = false, HelpText = "If true, will skip updating the metadata (e.g. Features field) in Parse.")]
 		public bool SkipUpdateMetadata { get; set; }

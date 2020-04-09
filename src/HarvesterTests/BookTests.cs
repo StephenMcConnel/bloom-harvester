@@ -5,10 +5,11 @@ using BloomHarvester.Parse.Model;
 using VSUnitTesting = Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 using NUnit.Framework;
+using SIL.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using BloomHarvesterTests.Stubs;
+using NSubstitute;
 
 namespace BloomHarvesterTests
 {
@@ -128,8 +129,8 @@ namespace BloomHarvesterTests
 				Tags = initialValue
 			});
 
-			var stubAnalyzer = new StubBookAnalyzer();
-			stubAnalyzer.NextGetBookComputedLevelResult = 1;
+			var stubAnalyzer = Substitute.For<IBookAnalyzer>();
+			stubAnalyzer.GetBookComputedLevel().Returns(1);
 			book.Analyzer = stubAnalyzer;
 
 			book.SetTags();
@@ -145,8 +146,8 @@ namespace BloomHarvesterTests
 				Tags = new string[] { "system:Incoming" }
 			});
 
-			var stubAnalyzer = new StubBookAnalyzer();
-			stubAnalyzer.NextGetBookComputedLevelResult = 2;
+			var stubAnalyzer = Substitute.For<IBookAnalyzer>();
+			stubAnalyzer.GetBookComputedLevel().Returns(2);
 			book.Analyzer = stubAnalyzer;
 
 			book.SetTags();
@@ -162,8 +163,8 @@ namespace BloomHarvesterTests
 				Tags = new string[] { "computedLevel:2" }
 			});
 
-			var stubAnalyzer = new StubBookAnalyzer();
-			stubAnalyzer.NextGetBookComputedLevelResult = 3;
+			var stubAnalyzer = Substitute.For<IBookAnalyzer>();
+			stubAnalyzer.GetBookComputedLevel().Returns(3);
 			book.Analyzer = stubAnalyzer;
 
 			book.SetTags();
@@ -225,48 +226,32 @@ namespace BloomHarvesterTests
 		}
 		#endregion
 
-		#region GetBloomLibraryBookDetailLink
 		[Test]
-		public void Book_GetBloomLibraryBookDetailLink_Prod_PopulatesLink()
+		public void Book_UpdatePerceptualHash_NormalHash_ModelUpdated()
 		{
-			var book = CreateBook(new BookModel()
+			var book = CreateBook(new BookModel());
+			string pHashDigest = "0xADA0BB7900AC75A7B67B66FEB6BF84D2B4AAAAAD9B9DB6C0B2A3B7AFAFA7ABACA7B0B3AFAEABB2AF";
+			using (var file = new TempFile(pHashDigest))
 			{
-				ObjectId = "myObjectId"
-			});
+				book.UpdatePerceptualHash(file.Path);
+			}
 
-			string url = book.GetDetailLink(EnvironmentSetting.Prod);
-
-			Assert.That(url, Is.EqualTo("https://bloomlibrary.org/browse/detail/myObjectId"));
+			Assert.That(book.Model.PHashOfFirstContentImage, Is.EqualTo(pHashDigest));
 		}
 
 		[Test]
-		public void Book_GetBloomLibraryBookDetailLink_Dev_PopulatesLink()
+		public void Book_UpdatePerceptualHash_NullHash_ModelUpdatedWithNullValue()
 		{
-			var book = CreateBook(new BookModel()
+			var book = CreateBook(new BookModel());
+			string pHashDigest = "null";
+			using (var file = new TempFile(pHashDigest))
 			{
-				ObjectId = "myObjectId"
-			});
+				book.UpdatePerceptualHash(file.Path);
+			}
 
-			string url = book.GetDetailLink(EnvironmentSetting.Dev);
-
-			Assert.That(url, Is.EqualTo("https://dev.bloomlibrary.org/browse/detail/myObjectId"));
+			// Namely, null value not a literal string "null"
+			Assert.That(book.Model.PHashOfFirstContentImage, Is.EqualTo(null));			
 		}
-
-		[TestCase(null)]
-		[TestCase("")]
-		[TestCase(" ")]
-		public void Book_GetBloomLibraryBookDetailLink_BadInput_ErrorReported(string badObjectId)
-		{
-			var book = CreateBook(new BookModel()
-			{
-				ObjectId = badObjectId
-			});
-
-			string url = book.GetDetailLink(EnvironmentSetting.Dev);
-
-			Assert.That(url, Is.Null);
-		}
-		#endregion
 
 		[Test]
 		public void Book_UpdateMetadata_NotEqual_PendingUpdatesFound()

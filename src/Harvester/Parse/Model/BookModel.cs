@@ -1,3 +1,4 @@
+using BloomHarvester.LogEntries;
 using Newtonsoft.Json;
 using System;
 using System.Collections;
@@ -32,7 +33,8 @@ namespace BloomHarvester.Parse.Model
 				"HarvestLogEntries",
 				"Features",
 				"Tags",
-				"Show"
+				"Show",
+				"PHashOfFirstContentImage"
 			});
 		}
 
@@ -94,6 +96,8 @@ namespace BloomHarvester.Parse.Model
 		[JsonProperty("tags")]
 		public string[] Tags { get; set; }
 
+		[JsonProperty("phashOfFirstContentImage")]	// Should be phash, not pHash
+		public string PHashOfFirstContentImage { get; set; }
 		/// <summary>
 		/// A json object used to limit what the Library shows the user for each book.
 		/// For example:
@@ -143,6 +147,55 @@ namespace BloomHarvester.Parse.Model
 		internal static string GetStaticParseClassName()
 		{
 			return "books";
+		}
+		internal IEnumerable<LogEntry> GetValidLogEntries()
+		{
+			if (this.HarvestLogEntries == null)
+				return Enumerable.Empty<LogEntry>();
+
+			return this.HarvestLogEntries.Select(str => LogEntry.Parse(str)).Where(x => x != null);
+		}
+
+		internal IEnumerable<string> GetMissingFonts()
+		{
+			var previouslyMissingFontNames = this.GetValidLogEntries().Where(x => x.Type == LogType.MissingFont).Select(x => x.Message);
+			return previouslyMissingFontNames;
+		}
+
+		// Prints out some diagnostic info about the book (for debugging a failed book)
+		// environment should be the environment of the BOOK not the Harvester. (i.e., it should probably be _parseDbEnvironment)
+		internal string GetBookDiagnosticInfo(EnvironmentSetting environment)
+		{
+			string diagnosticInfo =
+				$"BookId: {this.ObjectId}\n" +
+				$"URL: {this.GetDetailLink(environment) ?? "No URL"}\n" +
+				$"Title: {this.Title}";
+
+			return diagnosticInfo;
+		}
+
+		// Returns the link to the book detail page on Bloom Library
+		// If the book's ObjectId is null/etc, this method returns null as well.
+		public string GetDetailLink(EnvironmentSetting environment)
+		{
+			if (String.IsNullOrWhiteSpace(this.ObjectId))
+			{
+				return null;
+			}
+
+			string subdomain;
+			switch (environment)
+			{
+				case EnvironmentSetting.Prod:
+					subdomain = "";
+					break;
+				case EnvironmentSetting.Dev:
+				default:
+					subdomain = environment.ToString().ToLowerInvariant() + '.';
+					break;
+			}
+			string anchorReference = $"https://{subdomain}bloomlibrary.org/browse/detail/{this.ObjectId}";
+			return anchorReference;
 		}
 
 		#region Batch Parse Update code

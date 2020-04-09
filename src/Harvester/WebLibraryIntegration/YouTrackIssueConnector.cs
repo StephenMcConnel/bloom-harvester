@@ -1,3 +1,4 @@
+using BloomHarvester.Parse.Model;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,15 +10,41 @@ using YouTrackSharp.Issues;
 
 namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put in Bloom.web or Bloom.Communication instead?
 {
-	internal class YouTrackIssueConnector
+	internal interface IIssueReporter
 	{
+		bool Disabled { get; set; }
+		void ReportException(Exception exception, string additionalDescription, BookModel bookModel, EnvironmentSetting environment, bool exitImmediately = true);
+		void ReportError(string errorSummary, string errorDescription, string errorDetails, EnvironmentSetting environment, BookModel bookModel = null);
+		void ReportMissingFont(string missingFontName, string harvesterId, EnvironmentSetting environment, BookModel bookModel = null);
+	}
+
+	internal class YouTrackIssueConnector : IIssueReporter
+	{
+		private YouTrackIssueConnector()
+		{
+		}
+
 		private static readonly string _issueTrackingBackend = "issues.bloomlibrary.org";
 		private static readonly string _youTrackProjectKeyErrors = "BH";  // Or "SB" for Sandbox
 		private static readonly string _youTrackProjectKeyMissingFonts = "BH";  // Or "SB" for Sandbox
 
-		internal static bool Disabled { get; set; }	// Should default to Not Disabled
+		public bool Disabled { get; set; } // Should default to Not Disabled
 
-		private static void ReportToYouTrack(string projectKey, string summary, string description, bool exitImmediately)
+		private static YouTrackIssueConnector _instance;
+
+		// Singleton Instance
+		public static YouTrackIssueConnector Instance
+		{
+			get
+			{
+				if (_instance == null)
+					_instance = new YouTrackIssueConnector();
+
+				return _instance;
+			}
+		}
+
+		private void ReportToYouTrack(string projectKey, string summary, string description, bool exitImmediately)
 		{
 			Console.Error.WriteLine("ERROR: " + summary);
 			Console.Error.WriteLine("==========================");
@@ -74,12 +101,12 @@ namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put 
 			return youTrackIssueId;
 		}
 
-		internal static void ReportExceptionToYouTrack(Exception exception, string additionalDescription, Book book, EnvironmentSetting environment, bool exitImmediately = true)
+		public void ReportException(Exception exception, string additionalDescription, BookModel bookModel, EnvironmentSetting environment, bool exitImmediately = true)
 		{
 			string summary = $"[BH] [{environment}] Exception \"{exception.Message}\"";
 			string description =
 				additionalDescription + "\n\n" +
-				GetDiagnosticInfo(book, environment) + "\n\n" +
+				GetDiagnosticInfo(bookModel, environment) + "\n\n" +
 				GetIssueDescriptionFromException(exception);
 
 			ReportToYouTrack(_youTrackProjectKeyErrors, summary, description, exitImmediately);
@@ -123,35 +150,35 @@ namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put 
 			return bldr.ToString();
 		}
 
-		public static void ReportErrorToYouTrack(string errorSummary, string errorDescription, string errorDetails, EnvironmentSetting environment, Book book = null)
+		public void ReportError(string errorSummary, string errorDescription, string errorDetails, EnvironmentSetting environment, BookModel bookModel = null)
 		{
 			string summary = $"[BH] [{environment}] Error: {errorSummary}";
 
 			string description =
 				errorDescription + '\n' +
 				'\n' +
-				GetDiagnosticInfo(book, environment) + '\n' +
+				GetDiagnosticInfo(bookModel, environment) + '\n' +
 				errorDetails;
 
 			ReportToYouTrack(_youTrackProjectKeyErrors, summary, description, exitImmediately: false);
 		}
 
-		public static void ReportMissingFontToYouTrack(string missingFontName, string harvesterId, EnvironmentSetting environment, Book book = null)
+		public void ReportMissingFont(string missingFontName, string harvesterId, EnvironmentSetting environment, BookModel bookModel = null)
 		{
 			string summary = $"[BH] [{environment}] Missing Font: \"{missingFontName}\"";
 
 			string description = $"Missing font \"{missingFontName}\" on machine \"{harvesterId}\".\n\n";
-			description += GetDiagnosticInfo(book, environment);
+			description += GetDiagnosticInfo(bookModel, environment);
 
 			ReportToYouTrack(_youTrackProjectKeyMissingFonts, summary, description, exitImmediately: false);
 		}
 
-		private static string GetDiagnosticInfo(Book book, EnvironmentSetting environment)
+		private static string GetDiagnosticInfo(BookModel bookModel, EnvironmentSetting environment)
 		{
 			var assemblyVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(0, 0);
 
 			return
-				(book == null ? "" : book.GetBookDiagnosticInfo(environment) + '\n') + 
+				(bookModel == null ? "" : bookModel.GetBookDiagnosticInfo(environment) + '\n') + 
 				$"Environment: {environment}\n" +
 				$"Harvester Version: {assemblyVersion.Major}.{assemblyVersion.Minor}\n" +
 				$"Time: {DateTime.UtcNow.ToUniversalTime()} (UTC)";

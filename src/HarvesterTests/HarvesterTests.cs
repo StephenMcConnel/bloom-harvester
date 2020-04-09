@@ -1,12 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using NUnit.Framework;
 using BloomHarvester;
-using BloomHarvester.Parse.Model;
 using BloomHarvester.LogEntries;
+using BloomHarvester.Logger;
+using BloomHarvester.Parse;
+using BloomHarvester.Parse.Model;
+using BloomHarvester.WebLibraryIntegration;
 using VSUnitTesting = Microsoft.VisualStudio.TestTools.UnitTesting;
+using NSubstitute;
+using NSubstitute.Extensions;
+using NUnit.Framework;
 
 namespace BloomHarvesterTests
 {
@@ -15,6 +19,8 @@ namespace BloomHarvesterTests
 	{
 		private const bool PROCESS = true;
 		private const bool SKIP = false;
+
+		private IMonitorLogger _logger = new NullLogger();
 
 		// Helper methods
 		private static bool RunShouldProcessBook(BookModel book, string currentVersionStr, HarvestMode mode = HarvestMode.Default)
@@ -34,13 +40,15 @@ namespace BloomHarvesterTests
 				HarvesterMinorVersion = previousVersion.Minor,
 				HarvestLogEntries = new List<string>()
 				{
-					new MissingBaseUrlWarning().ToString()
+					new BloomHarvester.LogEntries.LogEntry(LogLevel.Warn, LogType.MissingBaseUrl, "").ToString()
 				}
 			};
 
 			return book;
 		}
-		
+
+		#region ShouldProcessBook() tests
+		#region Default mode
 		// Process cases
 		[TestCase("1.1", "0.9", PROCESS)]   // current is newer by a major version
 		// Skip cases
@@ -69,6 +77,31 @@ namespace BloomHarvesterTests
 			Assert.AreEqual(expectedResult, result);
 		}
 
+		[Test]
+		public void ShouldProcessBook_DefaultMode_FailedState_Version3Error()
+		{
+			BookModel book = SetupDefaultBook(HarvestState.Failed, "3.0");
+			book.HarvestLogEntries = new List<string>();
+			book.HarvestLogEntries.Add("MissingFontError madeUpFontName");	// This won't be parsed as a valid log entry anymore
+
+			bool result = RunShouldProcessBook(book, "4.0");
+
+			Assert.AreEqual(true, result);
+		}
+
+		[Test]
+		public void ShouldProcessBook_DefaultMode_FailedState_HarvestVersionNull()
+		{
+			BookModel book = SetupDefaultBook(HarvestState.Failed, "3.0");
+			book.HarvestLogEntries = null;
+
+			// Hopefully won't throw a Source must not be null (basically a Null Reference Exception)
+			bool result = RunShouldProcessBook(book, "4.0");
+
+			Assert.AreEqual(true, result);
+		}
+		#endregion
+
 		#region HarvestState=InProgress
 		[TestCase("1.1", "0.9")]    // In particular, even when the current version is newer than previousVersion, we should still skip it if it's recently marked InProgress
 		[TestCase("1.1", "1.0")]	// In particular, even when the current version is newer than previousVersion, we should still skip it if it's recently marked InProgress
@@ -87,9 +120,9 @@ namespace BloomHarvesterTests
 				HarvesterMajorVersion = previousVersion.Major,
 				HarvesterMinorVersion = previousVersion.Minor,
 				HarvestLogEntries = new List<string>()
-					{
-						new MissingBaseUrlWarning().ToString()
-					}
+				{
+					new BloomHarvester.LogEntries.LogEntry(LogLevel.Warn, LogType.MissingBaseUrl, "").ToString()
+				}
 			};
 
 			bool result = RunShouldProcessBook(book, currentVersionStr);
@@ -116,9 +149,9 @@ namespace BloomHarvesterTests
 				HarvesterMajorVersion = previousVersion.Major,
 				HarvesterMinorVersion = previousVersion.Minor,
 				HarvestLogEntries = new List<string>()
-					{
-						new MissingBaseUrlWarning().ToString()
-					}
+				{
+					new BloomHarvester.LogEntries.LogEntry(LogLevel.Warn, LogType.MissingBaseUrl, "").ToString()
+				}
 			};
 
 			bool result = RunShouldProcessBook(book, currentVersionStr);
@@ -161,9 +194,9 @@ namespace BloomHarvesterTests
 				HarvesterMajorVersion = 2,
 				HarvesterMinorVersion = 0,
 				HarvestLogEntries = new List<string>()
-					{
-						new MissingFontError("SomeCompletelyMadeUpNonExistentFont").ToString()
-					}
+				{
+					CreateMissingFontLogEntry("SomeCompletelyMadeUpNonExistentFont").ToString()
+				}
 			};
 
 			foreach (int majorVersion in majorVersionNums)
@@ -175,8 +208,7 @@ namespace BloomHarvesterTests
 				Assert.AreEqual(PROCESS, result, $"Failed for currentVersion={currentVersion}, previousVersion={book.HarvesterMajorVersion}.{book.HarvesterMinorVersion}");
 			}
 		}
-
-
+		
 		[Test]
 		public void ShouldProcessBook_MissingFont_Skipped()
 		{
@@ -187,7 +219,7 @@ namespace BloomHarvesterTests
 				HarvesterMinorVersion = 0,
 				HarvestLogEntries = new List<string>()
 				{
-					new MissingFontError("SomeCompletelyMadeUpNonExistentFont").ToString()
+					CreateMissingFontLogEntry("SomeCompletelyMadeUpNonExistentFont").ToString()
 				}
 			};
 
@@ -206,7 +238,7 @@ namespace BloomHarvesterTests
 				HarvesterMinorVersion = 0,
 				HarvestLogEntries = new List<string>()
 				{
-					new MissingFontError("Arial").ToString()    // Hopefully on the test machine...
+					CreateMissingFontLogEntry("Arial").ToString()    // Hopefully on the test machine...
 				}
 			};
 
@@ -225,8 +257,8 @@ namespace BloomHarvesterTests
 				HarvesterMinorVersion = 0,
 				HarvestLogEntries = new List<string>()
 				{
-					new MissingFontError("Arial").ToString(),	// Hopefully on the test machine...
-					new MissingFontError("SomeCompletelyMadeUpNonExistentFont").ToString()
+					CreateMissingFontLogEntry("Arial").ToString(),	// Hopefully on the test machine...
+					CreateMissingFontLogEntry("SomeCompletelyMadeUpNonExistentFont").ToString()
 				}
 			};
 
@@ -234,7 +266,9 @@ namespace BloomHarvesterTests
 
 			Assert.AreEqual(SKIP, result);
 		}
+		#endregion
 
+		#region MissingFonts tests
 		[Test]
 		public void GetMissingFonts_BookContainsEmptyStringFont_NotMarkedAsMissing()
 		{
@@ -246,6 +280,13 @@ namespace BloomHarvesterTests
 			Assert.AreEqual(0, missingFontsResult.Count, "No missing fonts were expected.");
 		}
 
+		private static BloomHarvester.LogEntries.LogEntry CreateMissingFontLogEntry(string fontName)
+		{
+			return new BloomHarvester.LogEntries.LogEntry(LogLevel.Error, LogType.MissingFont, fontName);
+		}
+		#endregion
+
+		#region QueryWhereOptimization tests
 		[Test]
 		public void GetQueryWhereOptimizations_NewOrUpdatedOnlyMode()
 		{
@@ -272,6 +313,175 @@ namespace BloomHarvesterTests
 			string combined = Harvester.InsertQueryWhereOptimizations(userInputWhere, "\"harvesterMajorVersion\":{\"$lt\":2}");
 			Assert.AreEqual("{ \"title\": { \"$regex\": \"^^A\" }, \"tags\": \"bookshelf:Ministerio de Educación de Guatemala\", \"harvesterMajorVersion\": { \"$lt\": 2 }}", combined);
 		}
+		#endregion
+
+		#region ProcessOneBook() tests
+		private HarvesterOptions GetHarvesterOptionsForProcessOneBookTests() => new HarvesterOptions() { Mode = HarvestMode.All, SuppressLogs = true, Environment = EnvironmentSetting.Local, ParseDBEnvironment = EnvironmentSetting.Local };
+
+		private Harvester GetSubstituteHarvester(IBloomCliInvoker bloomCli = null, IParseClient parseClient = null, IBookTransfer transferClient = null, IBookAnalyzer bookAnalyzer = null, bool ignoreFonts = true)
+		{
+			var options = GetHarvesterOptionsForProcessOneBookTests();
+			var harvester = Substitute.ForPartsOf<Harvester>(options);
+			harvester.Identifier = "UnitTestHarvester";
+			
+
+			// We don't want the unit tests to actually create any YouTrack issues
+			harvester._issueReporter = Substitute.For<IIssueReporter>();
+
+			harvester.BloomCli = bloomCli ?? Substitute.For<IBloomCliInvoker>();
+			harvester.ParseClient = parseClient ?? Substitute.For<IParseClient>();
+			harvester.Transfer = transferClient ?? Substitute.For<IBookTransfer>();
+
+			harvester.Configure().GetAnalyzer(default).ReturnsForAnyArgs(bookAnalyzer ?? Substitute.For<IBookAnalyzer>());
+
+			if (ignoreFonts)
+				harvester.Configure().CheckForMissingFontErrors(default, default).ReturnsForAnyArgs(new List<LogEntry>());
+
+			return harvester;
+		}
+
+		[Test]
+		public void ProcessOneBook_BloomCliReturnsNonZeroExitCode_BloomCliErrorRecorded()
+		{
+			// Stub setup
+			var bloomStub = Substitute.For<IBloomCliInvoker>();
+			bloomStub.StartAndWaitForBloomCli(default, default, out int exitCode, out string stdOut, out string stdErr)
+				.ReturnsForAnyArgs(args =>
+				{
+					args[2] = 2;	// exit code
+					return true;
+				});
+
+			using (var harvester = GetSubstituteHarvester(ignoreFonts: true, bloomCli: bloomStub))
+			{
+				// Test Setup
+				var book = new Book(new BookModel(), _logger);
+
+				// System under test				
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				var logEntries = book.Model.GetValidLogEntries();
+				var anyBloomCliErrors = logEntries.Any(x => x.Type == LogType.BloomCLIError);
+				Assert.That(anyBloomCliErrors, Is.True, "The relevant error type was not found");
+				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
+
+				// Validate that the code did in fact attempt to report an error
+				harvester._issueReporter.ReceivedWithAnyArgs().ReportError(default, default, default, default);
+			}
+		}
+
+		[Test]
+		public void ProcessOneBook_BloomCliTimesOut_TimeoutErrorRecorded()
+		{
+			// Stub setup
+			var bloomStub = Substitute.For<IBloomCliInvoker>();
+			bloomStub.StartAndWaitForBloomCli(default, default, out int exitCode, out string stdOut, out string stdErr).ReturnsForAnyArgs(false);
+			using (var harvester = GetSubstituteHarvester(ignoreFonts: true, bloomCli: bloomStub))
+			{
+				// Test Setup
+				var book = new Book(new BookModel(), _logger);				
+
+				// System under test				
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				var logEntries = book.Model.GetValidLogEntries();
+				var anyTimeoutErrors = logEntries.Any(x => x.Type == LogType.TimeoutError);
+				Assert.That(anyTimeoutErrors, Is.True, "The relevant error type was not found");
+				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
+
+				// Validate that the code did in fact attempt to report an error
+				harvester._issueReporter.ReceivedWithAnyArgs().ReportError(default, default, default, default);
+			}
+		}
+
+		[Test]
+		public void ProcessOneBook_HarvesterException_ProcessBookErrorRecorded()
+		{
+			using (var harvester = GetSubstituteHarvester(ignoreFonts: true))
+			{
+				// Test Setup
+				var book = new Book(new BookModel() { ObjectId = "123" }, _logger);
+				harvester.ParseClient = null;	// Generate a null reference exception
+
+				// System under test				
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				var logEntries = book.Model.GetValidLogEntries();
+				var anyRelevantErrors = logEntries.Any(x => x.Type == LogType.ProcessBookError);
+				Assert.That(anyRelevantErrors, Is.True, "The relevant error type was not found");
+				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
+
+				// Validate that the code did in fact attempt to report an error
+				harvester._issueReporter.ReceivedWithAnyArgs().ReportException(default, default, default, default);
+			}
+		}
+
+		[Test]
+		public void ProcessOneBook_GetMissingFontFails_MissingFontErrorRecorded()
+		{
+			using (var harvester = GetSubstituteHarvester(ignoreFonts: false))
+			{
+				// Stub setup
+				harvester.Configure().GetMissingFonts(default, out bool success)
+					.ReturnsForAnyArgs(args =>
+					{
+						args[1] = false; // Report failure
+						return new List<string>();
+					});
+
+				// Test Setup
+				var book = new Book(new BookModel() { ObjectId = "123" }, _logger);
+
+				// System under test				
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				var logEntries = book.Model.GetValidLogEntries();
+				var anyRelevantErrors = logEntries.Any(x => x.Type == LogType.GetFontsError && x.Level == LogLevel.Error);
+				Assert.That(anyRelevantErrors, Is.True, "The relevant error type was not found");
+				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
+
+				// Validate that the code did in fact attempt to report an error
+				harvester._issueReporter.ReceivedWithAnyArgs().ReportError(default, default, default, default);
+			}
+		}
+
+		[Test]
+		public void ProcessOneBook_MissingFont_MissingFontErrorRecorded()
+		{
+			using (var harvester = GetSubstituteHarvester(ignoreFonts: false))
+			{
+				// Stub setup
+				var missingFonts = new List<string>();
+				missingFonts.Add("madeUpFontName");
+				harvester.Configure().GetMissingFonts(default, out bool success)
+					.ReturnsForAnyArgs(args =>
+					{
+						args[1] = true;	// Report success
+						return missingFonts;
+					});
+
+				// Test Setup
+				var book = new Book(new BookModel() { ObjectId = "123" }, _logger);
+
+				// System under test				
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				var logEntries = book.Model.GetValidLogEntries();
+				var anyRelevantErrors = logEntries.Any(x => x.Type == LogType.MissingFont && x.Level == LogLevel.Error);
+
+				Assert.That(anyRelevantErrors, Is.True, "The relevant error type was not found");
+				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
+
+				// Validate that the code did in fact attempt to report an error
+				harvester._issueReporter.Received().ReportMissingFont("madeUpFontName", "UnitTestHarvester", EnvironmentSetting.Local, book.Model);
+			}
+		}
+		#endregion
 
 		[Test]
 		public void RemoveBookTitleFromBaseUrl_DecodedWithTitle_DecodedWithoutTitle()
@@ -279,6 +489,6 @@ namespace BloomHarvesterTests
 			string input = "https://s3.amazonaws.com/BloomLibraryBooks-Sandbox/hattonlists@gmail.com/8cba3b47-2ceb-47fd-9ac7-3172824849e4/How+Snakes+Came+to+Be/";
 			string output = Harvester.RemoveBookTitleFromBaseUrl(input);
 			Assert.AreEqual("https://s3.amazonaws.com/BloomLibraryBooks-Sandbox/hattonlists@gmail.com/8cba3b47-2ceb-47fd-9ac7-3172824849e4", output);
-		}
+		}		
 	}
 }

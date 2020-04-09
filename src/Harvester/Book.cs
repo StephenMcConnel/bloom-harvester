@@ -7,6 +7,7 @@ using BloomHarvester.LogEntries;
 using BloomHarvester.Logger;
 using BloomHarvester.Parse.Model;
 using Newtonsoft.Json;
+using SIL.IO;
 
 namespace BloomHarvester
 {
@@ -32,9 +33,9 @@ namespace BloomHarvester
 		/// </summary>
 		/// <param name="book">The book to check</param>
 		/// <returns></returns>
-		internal List<BaseLogEntry> FindBookWarnings()
+		internal List<LogEntry> FindBookWarnings()
 		{
-			var warnings = new List<BaseLogEntry>();
+			var warnings = new List<LogEntry>();
 
 			if (this.Model == null)
 			{
@@ -43,7 +44,7 @@ namespace BloomHarvester
 
 			if (String.IsNullOrWhiteSpace(this.Model.BaseUrl))
 			{
-				warnings.Add(new MissingBaseUrlWarning());
+				warnings.Add(new LogEntry(LogLevel.Warn, LogType.MissingBaseUrl, ""));
 			}
 
 			if (warnings.Any())
@@ -210,40 +211,16 @@ namespace BloomHarvester
 			}
 		}
 
-		// Prints out some diagnostic info about the book (for debugging a failed book)
-		// environment should be the environment of the BOOK not the Harvester. (i.e., it should probably be _parseDbEnvironment)
-		internal string GetBookDiagnosticInfo(EnvironmentSetting environment)
+		internal void UpdatePerceptualHash(string infoPath)
 		{
-			string diagnosticInfo =
-				$"BookId: {Model.ObjectId}\n" +
-				$"URL: {this.GetDetailLink(environment) ?? "No URL"}\n" +
-				$"Title: {Model.Title}";
+			if (!RobustFile.Exists(infoPath))
+				return;
 
-			return diagnosticInfo;
-		}
+			string pHashText = RobustFile.ReadAllText(infoPath);
+			if (pHashText == "null")
+				pHashText = null;
 
-		// Returns the link to the book detail page on Bloom Library
-		// If the book's ObjectId is null/etc, this method returns null as well.
-		public string GetDetailLink(EnvironmentSetting environment)
-		{
-			if (String.IsNullOrWhiteSpace(Model.ObjectId))
-			{
-				return null;
-			}
-
-			string subdomain;
-			switch (environment)
-			{
-				case EnvironmentSetting.Prod:
-					subdomain = "";
-					break;
-				case EnvironmentSetting.Dev:
-				default:
-					subdomain = environment.ToString().ToLowerInvariant() + '.';
-					break;
-			}
-			string anchorReference = $"https://{subdomain}bloomlibrary.org/browse/detail/{Model.ObjectId}";
-			return anchorReference;
+			this.Model.PHashOfFirstContentImage = pHashText;
 		}
 
 		/// <summary>

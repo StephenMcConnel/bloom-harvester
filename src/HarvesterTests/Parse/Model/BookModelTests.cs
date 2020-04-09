@@ -3,6 +3,7 @@ using NUnit.Framework;
 using VSUnitTesting = Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using BloomHarvester;
 
 namespace BloomHarvesterTests.Parse.Model
 {
@@ -52,5 +53,39 @@ namespace BloomHarvesterTests.Parse.Model
 
 			CollectionAssert.AreEquivalent(expectedResult, result);
 		}
+
+		#region GetBloomLibraryBookDetailLink
+		[Test]
+		public void Book_GetBloomLibraryBookDetailLink_Prod_PopulatesLink()
+		{
+			var bookModel = new BookModel() { ObjectId = "myObjectId" };
+
+			string url = bookModel.GetDetailLink(EnvironmentSetting.Prod);
+
+			Assert.That(url, Is.EqualTo("https://bloomlibrary.org/browse/detail/myObjectId"));
+		}
+
+		[Test]
+		public void Book_GetBloomLibraryBookDetailLink_Dev_PopulatesLink()
+		{
+			var bookModel = new BookModel() { ObjectId = "myObjectId" };
+
+			string url = bookModel.GetDetailLink(EnvironmentSetting.Dev);
+
+			Assert.That(url, Is.EqualTo("https://dev.bloomlibrary.org/browse/detail/myObjectId"));
+		}
+
+		[TestCase(null)]
+		[TestCase("")]
+		[TestCase(" ")]
+		public void Book_GetBloomLibraryBookDetailLink_BadInput_ErrorReported(string badObjectId)
+		{
+			var book = new BookModel() { ObjectId = badObjectId };
+
+			string url = book.GetDetailLink(EnvironmentSetting.Dev);
+
+			Assert.That(url, Is.Null);
+		}
+		#endregion
 	}
 }
