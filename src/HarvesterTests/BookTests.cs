@@ -226,12 +226,15 @@ namespace BloomHarvesterTests
 		}
 		#endregion
 
-		[Test]
-		public void Book_UpdatePerceptualHash_NormalHash_ModelUpdated()
+		[TestCase("")]
+		[TestCase("\r")]
+		[TestCase("\n")]
+		[TestCase("\r\n")]
+		public void Book_UpdatePerceptualHash_NormalHash_ModelUpdated(string lineEnding)
 		{
 			var book = CreateBook(new BookModel());
 			string pHashDigest = "0xADA0BB7900AC75A7B67B66FEB6BF84D2B4AAAAAD9B9DB6C0B2A3B7AFAFA7ABACA7B0B3AFAEABB2AF";
-			using (var file = new TempFile(pHashDigest))
+			using (var file = new TempFile(pHashDigest + lineEnding))
 			{
 				book.UpdatePerceptualHash(file.Path);
 			}
@@ -239,12 +242,15 @@ namespace BloomHarvesterTests
 			Assert.That(book.Model.PHashOfFirstContentImage, Is.EqualTo(pHashDigest));
 		}
 
-		[Test]
-		public void Book_UpdatePerceptualHash_NullHash_ModelUpdatedWithNullValue()
+		[TestCase("")]
+		[TestCase("\r")]
+		[TestCase("\n")]
+		[TestCase("\r\n")]
+		public void Book_UpdatePerceptualHash_NullHash_ModelUpdatedWithNullValue(string lineEnding)
 		{
 			var book = CreateBook(new BookModel());
 			string pHashDigest = "null";
-			using (var file = new TempFile(pHashDigest))
+			using (var file = new TempFile(pHashDigest + lineEnding))
 			{
 				book.UpdatePerceptualHash(file.Path);
 			}

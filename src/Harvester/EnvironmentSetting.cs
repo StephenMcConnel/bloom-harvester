@@ -27,12 +27,12 @@ namespace BloomHarvester
 		{
 			EnvironmentSetting parsedEnv = resourceEnv;
 
-			if (resourceEnv != EnvironmentSetting.Default)
+			if (resourceEnv != EnvironmentSetting.Unknown && resourceEnv != EnvironmentSetting.Default)
 			{
 				// Individual resource's environment was specified. Lets use it directly.
 				parsedEnv = resourceEnv;
 			}
-			else if (fallbackEnv != EnvironmentSetting.Default)
+			else if (fallbackEnv != EnvironmentSetting.Unknown && fallbackEnv != EnvironmentSetting.Default)
 			{
 				// Resource environment not specified, but general environment parameter was.
 				// Fallback to general environment parameter
@@ -45,7 +45,7 @@ namespace BloomHarvester
 			}
 
 			// Verify Postcondition: Should not return Environment.Default
-			Debug.Assert(parsedEnv != EnvironmentSetting.Default, "GetEnvironment should determine a specific, non-default value of Environment");
+			Debug.Assert(parsedEnv != EnvironmentSetting.Unknown && parsedEnv != EnvironmentSetting.Default, "GetEnvironment should determine a specific, non-default value of Environment");
 
 			return parsedEnv;
 		}

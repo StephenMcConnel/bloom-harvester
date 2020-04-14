@@ -216,7 +216,7 @@ namespace BloomHarvester
 			if (!RobustFile.Exists(infoPath))
 				return;
 
-			string pHashText = RobustFile.ReadAllText(infoPath);
+			string pHashText = RobustFile.ReadAllText(infoPath).Trim();
 			if (pHashText == "null")
 				pHashText = null;
 

@@ -13,9 +13,13 @@ If ($environment -eq "prod") {
     $buildQueueName = "Bloom_HarvesterReleaseContinuous";
 }
 
-# Intentionally using the same RestartOnCrash exe for both.
-# Just easier to manage just one settings file than having multiple instances running 
-$restartOnCrashPath = "C:\Harvester\RestartOnCrash\RestartOnCrash.exe"
+# Currently just forget about RestartOnCrash (because it doesn't work properly when running with multiple users)
+# And we are running the two harvesters under different user accounts so that they can process books simultaneously
+# Instead, we'll rely on the fallback that just starts the Harvester up directly
+# I haven't actually observed RestartOnCrash  helping in a case where the Harvester terminated, so i think it's ok...
+# In a really bad case scneario where the Harvester somehow terminated, it will get restarted when this script is next run
+$restartOnCrashPath = "C:\blahblahMadeUpPathThatDoesNotExist"
+#$restartOnCrashPath = "C:\Harvester\RestartOnCrash\RestartOnCrash.exe"
 
 
 $outputDir= "$($harvestRootDir)\ReleaseNext"
@@ -95,7 +99,12 @@ Copy-Item "$($outputDir)\*" -Destination $currentVersionDir -Recurse -Force
 # Check for environment variables
 # Enhance: I suppose you could allow an optional parameter which would specify whether it wants dev or prod. And only check the relevant keys.
 $anyEnvVarsMissing = $false
-$envVarKeys = "BloomBooksS3KeyDev", "BloomBooksS3KeyProd", "BloomBooksS3SecretKeyDev", "BloomBooksS3SecretKeyProd", "BloomHarvesterAzureAppInsightsKeyDev", "BloomHarvesterAzureAppInsightsKeyProd", "BloomHarvesterParseAppIdDev", "BloomHarvesterParseAppIdProd", "BloomHarvesterS3KeyDev", "BloomHarvesterS3KeyProd", "BloomHarvesterS3SecretKeyDev", "BloomHarvesterS3SecretKeyProd", "BloomHarvesterUserName", "BloomHarvesterUserPasswordDev", "BloomHarvesterUserPasswordProd"
+If ($environment -eq "prod") {
+    $envVarKeys = "BloomBooksS3KeyProd", "BloomBooksS3SecretKeyProd", "BloomHarvesterAzureAppInsightsKeyProd", "BloomHarvesterParseAppIdProd", "BloomHarvesterS3KeyProd", "BloomHarvesterS3SecretKeyProd", "BloomHarvesterUserName", "BloomHarvesterUserPasswordProd"	
+} Else {
+    $envVarKeys = "BloomBooksS3KeyDev", "BloomBooksS3SecretKeyDev", "BloomHarvesterAzureAppInsightsKeyDev", "BloomHarvesterParseAppIdDev", "BloomHarvesterS3KeyDev", "BloomHarvesterS3SecretKeyDev",  "BloomHarvesterUserName", "BloomHarvesterUserPasswordDev"
+}
+
 ForEach ($key in $envVarKeys) {
     if (-Not (Test-Path "env:$($key)")) {
         Write-Error "Missing environment variable: $key"
@@ -115,7 +124,7 @@ If ((Test-Path -Path $restartOnCrashPath -PathType Leaf)) {
 } Else {
     Write-Host "RestartOnCrash not found at $($restartOnCrashPath)"
     Write-Host "Starting Harvester"
-    Start-Process -FilePath $harvesterExePath -ArgumentList  @("harvest", "--mode=default", "--environment=dev", "--parseDBEnvironment=dev", "--count=1", "--loop")
+    Start-Process -FilePath $harvesterExePath -ArgumentList  @("harvest", "--mode=default", "--environment=$($environment)", "--parseDBEnvironment=$($environment)", "--count=1", "--loop", "--loopWaitSeconds=60")
 }
 
 Write-Host "Done"

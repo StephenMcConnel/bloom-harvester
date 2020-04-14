@@ -34,6 +34,7 @@ namespace BloomHarvester
 		protected string _uploadBucketName;
 		protected HarvesterS3Client _bloomS3Client;
 		protected HarvesterS3Client _s3UploadClient;  // Note that we upload books to a different bucket than we download them from, so we have a separate client.
+		private DateTime _initTime;
 		internal IBloomCliInvoker BloomCli { get; set; }
 		protected HarvesterOptions _options;
 		private HashSet<string> _cumulativeFailedBookIdSet = new HashSet<string>();
@@ -58,20 +59,6 @@ namespace BloomHarvester
 
 			var assemblyVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(0, 0);
 			this.Version = new Version(assemblyVersion.Major, assemblyVersion.Minor);	// Only consider the major and minor version
-
-			// Note: If the same machine runs multiple BloomHarvester processes, then you need to add a suffix to this.
-			this.Identifier = Environment.MachineName;
-
-			if (options.SuppressLogs)
-			{
-				_logger = new ConsoleLogger();
-			}
-			else
-			{
-				EnvironmentSetting azureMonitorEnvironment = EnvironmentUtils.GetEnvOrFallback(options.LogEnvironment, options.Environment);
-				_logger = new AzureMonitorLogger(azureMonitorEnvironment, this.Identifier);
-			}
-			AlertManager.Instance.Logger = _logger;
 
 			if (options.LoopWaitSeconds >= 0)
 			{
@@ -106,7 +93,30 @@ namespace BloomHarvester
 
 			_s3UploadClient = new HarvesterS3Client(_uploadBucketName, _parseDBEnvironment, false);
 
+			// Note: For maximum safety, only one Harvester should be running per user on a machine
+			// If two harvesters attempt to process different books at the same time...
+			// 1) The temp folders they make currently will conflict, but that problem can be easily solved.
+			// 2) The bigger problem is that the underlying Bloom dependencies sometimes encounter problems from trying to run 2 different Bloom processes (e.g. fileserver errors)
+			//
+			// This isn't to say that you can't try to run 2 Harvesters with the same user
+			// It will only create errors if they both try to process books at exactly the right timings...
+			// and in many cases, the Harvester spends most of its time just waiting.
+			// But we can't guarantee it'll be error-free, especially if both are actively processing books
+			this.Identifier = $"{Environment.MachineName}-{_parseDBEnvironment.ToString()}";
+			_initTime = DateTime.Now;
+
 			// More setup
+			if (options.SuppressLogs)
+			{
+				_logger = new ConsoleLogger();
+			}
+			else
+			{
+				EnvironmentSetting azureMonitorEnvironment = EnvironmentUtils.GetEnvOrFallback(options.LogEnvironment, options.Environment);
+				_logger = new AzureMonitorLogger(azureMonitorEnvironment, this.Identifier);
+			}
+			AlertManager.Instance.Logger = _logger;
+
 			BloomCli = new BloomCliInvoker(_logger);
 			
 			// Setup a handler that is called when the console is closed
@@ -117,6 +127,17 @@ namespace BloomHarvester
 		public void Dispose()
 		{
 			_logger.Dispose();
+		}
+
+		/// <summary>
+		/// Uniquely identifies a Harvester, within a second
+		/// </summary>
+		public string GetUniqueIdentifier()
+		{
+			// Enables us to tell apart two Harvesters running on the same machine
+			// For now, we print out the date/time for ease of use when debugging/etc.
+			// If we need better uniqueness guarantees later, it's fine to use a GUID here instead.
+			return this.Identifier + _initTime.ToString("yyyyMMdd-HHmmss");
 		}
 
 		/// <summary>
@@ -424,6 +445,11 @@ namespace BloomHarvester
 				_logger.TrackEvent("Download Book");
 				string decodedUrl = HttpUtility.UrlDecode(book.Model.BaseUrl);
 				string urlWithoutTitle = RemoveBookTitleFromBaseUrl(decodedUrl);
+
+				// Note: If there are multiple instances of the Harvester processing the same environment,
+				//       and they both process the same book, they will attempt to downlaod to the same path, which will probably be bad.
+				//       But for now, the benefit of having each run download into a predictable location (allows caching when enabled)
+				//       seems to outweigh the cost (since we don't normally run multiple instances w/the same env on same machine)
 				string downloadRootDir = Path.Combine(Path.GetTempPath(), Path.Combine("BloomHarvester", this.Identifier));
 				_logger.LogVerbose("Download Dir: {0}", downloadRootDir);
 				Bloom.Program.RunningHarvesterMode = true;  // HandleDownloadWithoutProgress has a nested subcall to BloomS3Client.cs::AvoidThisFile() which looks at HarvesterMode
@@ -891,9 +917,9 @@ namespace BloomHarvester
 
 			bool success = true;
 
-			using (var folderForUnzipped = new TemporaryFolder("BloomHarvesterStagingUnzipped"))
+			using (var folderForUnzipped = new TemporaryFolder($"BloomHarvesterStagingUnzipped-{this.GetUniqueIdentifier()}"))
 			{
-				using (var folderForZipped = new TemporaryFolder("BloomHarvesterStaging"))
+				using (var folderForZipped = new TemporaryFolder($"BloomHarvesterStaging-{this.GetUniqueIdentifier()}"))
 				{
 					var components = new S3UrlComponents(downloadUrl);
 					string zippedBloomDOutputPath = Path.Combine(folderForZipped.FolderPath, $"{components.BookTitle}.bloomd");

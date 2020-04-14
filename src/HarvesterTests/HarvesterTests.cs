@@ -47,6 +47,25 @@ namespace BloomHarvesterTests
 			return book;
 		}
 
+		[TestCase("Dev", "Dev")]
+		[TestCase("Dev", "Local")]
+		public void HarvesterGetUniqueIdentifier_TwoInstances_ReturnDifferentValues(string env1, string env2)
+		{
+			using (var harvester1 = new Harvester(new HarvesterOptions() { Environment = (EnvironmentSetting)Enum.Parse(typeof(EnvironmentSetting), env1), SuppressLogs = true}))
+			{
+				var obj = new VSUnitTesting.PrivateObject(harvester1);
+				obj.SetField("_initTime", DateTime.Now.AddSeconds(-1));
+
+				using (var harvester2 = new Harvester(new HarvesterOptions() { Environment = (EnvironmentSetting)Enum.Parse(typeof(EnvironmentSetting), env2), SuppressLogs = true }))
+				{
+					var id1 = harvester1.GetUniqueIdentifier();
+					var id2 = harvester2.GetUniqueIdentifier();
+
+					Assert.That(id1, Is.Not.EqualTo(id2));
+				}
+			}
+		}
+
 		#region ShouldProcessBook() tests
 		#region Default mode
 		// Process cases
