@@ -239,6 +239,10 @@ namespace BloomHarvester
 		/// <param name="metaData">The new metadata to update with</param>
 		internal void UpdateMetadataIfNeeded(Bloom.Book.BookMetaData metaData)
 		{
+			if (metaData == null)
+				// Don't bother trying to change anything if the new metadata object is null
+				return;
+
 			if ((Model.Features == null && metaData.Features != null)
 				|| !Model.Features.SequenceEqual(metaData.Features))
 			{

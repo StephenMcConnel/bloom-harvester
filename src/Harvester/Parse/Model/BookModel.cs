@@ -21,6 +21,26 @@ namespace BloomHarvester.Parse.Model
 		public const string kHarvestStateField = "harvestState";
 		public const string kShowField = "show";
 
+		/// <summary>
+		/// The normal constructor
+		/// </summary>
+		public BookModel()
+		{
+		}
+
+		/// <summary>
+		/// A constructor that allows setting readonly fields
+		/// </summary>
+		/// <param name="baseUrl"></param>
+		internal BookModel(string baseUrl = null, string title = null, bool isInCirculation = true)
+		{
+			this.BaseUrl = baseUrl;
+			this.Title = title;
+			this.IsInCirculation = isInCirculation;
+
+			// Enhance: add more readonly fields as needed
+		}
+
 		protected override HashSet<string> GetWriteableMembers()
 		{
 			return new HashSet<string>(new string[]

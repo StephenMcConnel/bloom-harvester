@@ -14,7 +14,15 @@ using System.Web;
 
 namespace BloomHarvester.WebLibraryIntegration
 {
-	public class HarvesterS3Client : BloomS3Client
+	interface IS3Client
+	{
+		void UploadFile(string filePath, string uploadFolderKey);
+		void UploadDirectory(string directoryToUpload, string uploadFolderKey);
+		void DeleteDirectory(string folderKey);
+		string GetFileWithExtension(string bookFolder, string extension, string idealBaseName = "");
+	}
+
+	public class HarvesterS3Client : BloomS3Client, IS3Client
 	{
 		public const string HarvesterUnitTestBucketName = "bloomharvest-unittests";
 		public const string HarvesterSandboxBucketName = "bloomharvest-sandbox";
