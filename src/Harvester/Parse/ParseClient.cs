@@ -283,7 +283,7 @@ namespace BloomHarvester.Parse
 		{
 			var request = new RestRequest("classes/books", Method.GET);
 			SetCommonHeaders(request);
-			request.AddParameter("keys", "object_id,baseUrl,harvestState,harvesterMajorVersion,harvesterMinorVersion,harvestLog,harvestStartedAt,show,title,inCirculation,langPointers,uploader,features,tags,pHashOfFirstContentImage");
+			request.AddParameter("keys", "object_id,baseUrl,harvestState,harvesterMajorVersion,harvesterMinorVersion,harvestLog,harvestStartedAt,show,title,inCirculation,langPointers,uploader,features,tags,phashOfFirstContentImage");
 
 			if (!String.IsNullOrEmpty(whereCondition))
 			{
@@ -337,8 +337,8 @@ namespace BloomHarvester.Parse
 				}
 				catch (Newtonsoft.Json.JsonReaderException e)
 				{
-					Logger.LogWarn("ParseClient::GetAllResults() - JsonReaderException.");
-					Logger.LogVerbose("JsonReaderException: " + e.ToString());
+					Logger?.LogWarn("ParseClient::GetAllResults() - JsonReaderException.");
+					Logger?.LogVerbose("JsonReaderException: " + e.ToString());
 					didExitPrematurely = true;
 					return results;
 				}
@@ -347,7 +347,7 @@ namespace BloomHarvester.Parse
 				{
 					// If the Parse Server is down or restarting, the response might time out after a minute or so
 					// and we'll reach this condition.
-					Logger.LogWarn("ParseClient::GetAllResults() - response was null.");
+					Logger?.LogWarn("ParseClient::GetAllResults() - response was null.");
 					didExitPrematurely = true;
 					return results;
 				}
@@ -361,7 +361,7 @@ namespace BloomHarvester.Parse
 
 				if (response.Results == null)
 				{
-					Logger.LogWarn("ParseClient::GetAllResults() - response.Results was null.");
+					Logger?.LogWarn("ParseClient::GetAllResults() - response.Results was null.");
 					didExitPrematurely = true;
 					return results;
 				}

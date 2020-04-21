@@ -1,5 +1,7 @@
-﻿using BloomHarvester.Parse.Model;
+using BloomHarvester.Parse;
+using BloomHarvester.Parse.Model;
 using Newtonsoft.Json;
+using NSubstitute;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -9,6 +11,55 @@ namespace BloomHarvesterTests.Parse.Model
 {
 	class WriteableParseObjectTests
 	{
+		#region FlushUpdateToDatabase()
+		[Test]
+		public void FlushUpdateToDatabase_NoUpdates_NothingFlushed()
+		{
+			// Setup
+			var obj = new CustomParseClass();
+			obj.MarkAsDatabaseVersion();
+			var mockParseClient = Substitute.For<IParseClient>();
+
+			// Test
+			obj.FlushUpdateToDatabase(mockParseClient);
+
+			// Verification
+			mockParseClient.DidNotReceiveWithAnyArgs().UpdateObject(default, default, default);
+		}
+
+		[Test]
+		public void FlushUpdateToDatabase_YesUpdatesButReadonly_NothingFlushed()
+		{
+			// Setup
+			var obj = new CustomParseClass() { ObjectId = "myId1" };
+			obj.MarkAsDatabaseVersion();
+			obj._myWriteableField1 = "newValue";
+			var mockParseClient = Substitute.For<IParseClient>();
+
+			// Test
+			obj.FlushUpdateToDatabase(mockParseClient, isReadOnly: true);
+
+			// Verification
+			mockParseClient.DidNotReceiveWithAnyArgs().UpdateObject(default, default, default);
+		}
+
+		[Test]
+		public void FlushUpdateToDatabase_YesUpdates_DBUpdated()
+		{
+			// Setup
+			var obj = new CustomParseClass() { ObjectId = "myId1" };
+			obj.MarkAsDatabaseVersion();
+			obj._myWriteableField1 = "newValue";
+			var mockParseClient = Substitute.For<IParseClient>();
+
+			// Test
+			obj.FlushUpdateToDatabase(mockParseClient);
+
+			// Verification
+			mockParseClient.Received(1).UpdateObject("customParseClass", "myId1", "{\"_myWriteableField1\":\"newValue\"}");
+		}
+		#endregion
+
 		[Test]
 		public void WriteableParseObject_GetPendingUpdates_ModifyAWriteableProperty_ItemAdded()
 		{

@@ -242,15 +242,16 @@ namespace BloomHarvesterTests
 			Assert.That(book.Model.PHashOfFirstContentImage, Is.EqualTo(pHashDigest));
 		}
 
-		[TestCase("")]
-		[TestCase("\r")]
-		[TestCase("\n")]
-		[TestCase("\r\n")]
-		public void Book_UpdatePerceptualHash_NullHash_ModelUpdatedWithNullValue(string lineEnding)
+		[TestCase("null")]
+		[TestCase("null\r")]
+		[TestCase("null\n")]
+		[TestCase("null\r\n")]
+		[TestCase("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000")]
+		[TestCase("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000\r\n")]
+		public void Book_UpdatePerceptualHash_InvalidHash_ModelUpdatedWithNullValue(string invalidPHash)
 		{
 			var book = CreateBook(new BookModel());
-			string pHashDigest = "null";
-			using (var file = new TempFile(pHashDigest + lineEnding))
+			using (var file = new TempFile(invalidPHash))
 			{
 				book.UpdatePerceptualHash(file.Path);
 			}

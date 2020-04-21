@@ -217,7 +217,13 @@ namespace BloomHarvester
 				return;
 
 			string pHashText = RobustFile.ReadAllText(infoPath).Trim();
-			if (pHashText == "null")
+
+			// The BloomCLI passes these back by writing to a file, so it can't return the null value easily... writes a literal string "null" instead.
+			// convert that back to a proper null value (not a string)
+			// Also deal with pHashes that are all 0's... this can happen and indicates something funny happened in the pHash calculation.
+			// Doesn't make sense to assume two images that both return 0x000... are actually the same.
+			// So change them into null, because null == null evaluates to false.
+			if (pHashText == "null" || pHashText == "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000")
 				pHashText = null;
 
 			this.Model.PHashOfFirstContentImage = pHashText;

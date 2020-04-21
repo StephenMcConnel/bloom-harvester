@@ -26,7 +26,7 @@ namespace BloomHarvester
 		private const bool kEnableLoggingSkippedBooks = false;
 
 		private int _delayAfterEmptyRunSecs = 300;
-		protected IMonitorLogger _logger;
+		protected IMonitorLogger _logger = new ConsoleLogger();
 		internal IIssueReporter _issueReporter = YouTrackIssueConnector.Instance;
 		internal IParseClient ParseClient { get; set; }
 		private EnvironmentSetting _parseDBEnvironment;
@@ -55,6 +55,7 @@ namespace BloomHarvester
 
 		public Harvester(HarvesterOptions options)
 		{
+			_initTime = DateTime.Now;
 			_options = options;
 
 			_issueReporter.Disabled = options.SuppressErrors;
@@ -67,8 +68,26 @@ namespace BloomHarvester
 				_delayAfterEmptyRunSecs = options.LoopWaitSeconds;
 			}
 
-			// Setup Parse Client and S3 Clients
 			_parseDBEnvironment = EnvironmentUtils.GetEnvOrFallback(options.ParseDBEnvironment, options.Environment);
+
+			// Note: For maximum safety, only one Harvester should be running per user on a machine
+			// If two harvesters attempt to process different books at the same time...
+			// 1) The temp folders they make currently will conflict, but that problem can be easily solved.
+			// 2) The bigger problem is that the underlying Bloom dependencies sometimes encounter problems from trying to run 2 different Bloom processes (e.g. fileserver errors)
+			//
+			// This isn't to say that you can't try to run 2 Harvesters with the same user
+			// It will only create errors if they both try to process books at exactly the right timings...
+			// and in many cases, the Harvester spends most of its time just waiting.
+			// But we can't guarantee it'll be error-free, especially if both are actively processing books
+			this.Identifier = $"{Environment.MachineName}-{_parseDBEnvironment.ToString()}";
+
+			if (!options.SuppressLogs)
+			{
+				EnvironmentSetting azureMonitorEnvironment = EnvironmentUtils.GetEnvOrFallback(options.LogEnvironment, options.Environment);
+				_logger = new AzureMonitorLogger(azureMonitorEnvironment, this.Identifier);
+			}
+
+			// Setup Parse Client and S3 Clients
 			this.ParseClient = new ParseClient(_parseDBEnvironment, _logger);
 
 			switch (_parseDBEnvironment)
@@ -95,32 +114,11 @@ namespace BloomHarvester
 
 			_s3UploadClient = new HarvesterS3Client(_uploadBucketName, _parseDBEnvironment, false);
 
-			// Note: For maximum safety, only one Harvester should be running per user on a machine
-			// If two harvesters attempt to process different books at the same time...
-			// 1) The temp folders they make currently will conflict, but that problem can be easily solved.
-			// 2) The bigger problem is that the underlying Bloom dependencies sometimes encounter problems from trying to run 2 different Bloom processes (e.g. fileserver errors)
-			//
-			// This isn't to say that you can't try to run 2 Harvesters with the same user
-			// It will only create errors if they both try to process books at exactly the right timings...
-			// and in many cases, the Harvester spends most of its time just waiting.
-			// But we can't guarantee it'll be error-free, especially if both are actively processing books
-			this.Identifier = $"{Environment.MachineName}-{_parseDBEnvironment.ToString()}";
-			_initTime = DateTime.Now;
-
 			// More setup
-			if (options.SuppressLogs)
-			{
-				_logger = new ConsoleLogger();
-			}
-			else
-			{
-				EnvironmentSetting azureMonitorEnvironment = EnvironmentUtils.GetEnvOrFallback(options.LogEnvironment, options.Environment);
-				_logger = new AzureMonitorLogger(azureMonitorEnvironment, this.Identifier);
-			}
 			AlertManager.Instance.Logger = _logger;
 
 			BloomCli = new BloomCliInvoker(_logger);
-			
+
 			// Setup a handler that is called when the console is closed
 			consoleExitHandler = new ConsoleEventDelegate(ConsoleEventCallback);
 			SetConsoleCtrlHandler(consoleExitHandler, add: true);
@@ -587,7 +585,7 @@ namespace BloomHarvester
 		{
 			Debug.Assert(book != null, "ShouldProcessBook(): Book was null");
 
-			// Note: Beware, IsInCirculation can also be null, and we DO want to process books where it is true
+			// Note: Beware, IsInCirculation can also be null, and we DO want to process books where isInCirculation==null
 			if (book.IsInCirculation == false)
 			{
 				if (harvestMode == HarvestMode.ForceAll)
