@@ -205,7 +205,7 @@ namespace BloomHarvester
 				++pageCount;
 				int wordCountForThisPage = 0;
 
-				IEnumerable<XmlElement> editables = GetEditablesFromPage(pageElement, Language1Code, includeImageDescriptions: false, includeTextOverPicture: false);
+				IEnumerable<XmlElement> editables = GetEditablesFromPage(pageElement, Language1Code, includeImageDescriptions: false, includeTextOverPicture: true);
 				foreach (var editable in editables)
 				{
 					wordCountForThisPage += GetWordCount(editable.InnerText);
@@ -231,8 +231,13 @@ namespace BloomHarvester
 		/// </summary>
 		internal static int GetWordCount(string text)
 		{
+			if (String.IsNullOrWhiteSpace(text))
+				return 0;
+			// FYI, GetWordsFromHtmlString() (which is a port from our JS code) returns an array containing the empty string
+			// if the input to it is the empty string. So handle that...
+
 			var words = GetWordsFromHtmlString(text);
-			return words.Length;
+			return words.Where(x => !String.IsNullOrEmpty(x)).Count();
 		}
 
 		private static readonly Regex kHtmlLinebreakRegex = new Regex("/<br><\\/br>|<br>|<br \\/>|<br\\/>|\r?\n/", RegexOptions.Compiled);

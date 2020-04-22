@@ -208,7 +208,7 @@ namespace BloomHarvesterTests
 			Assert.That(_epubCheckAnalyzer2.IsEpubSuitable(), Is.False, "Modified Basic Text & Picture page should not be suitable for Epub");
 		}
 
-		private string CreateHtmlForGetBookLevelTests(string page1Text)
+		private string GetHtmlForGetBookLevelTests(string page1Text, string page1TextOverPictureHtml)
 		{
 			string html =
 $@"<html>
@@ -245,12 +245,7 @@ $@"<html>
 				  <div class='bloom-editable' lang='en'>This is a bunch of really really long text that would bump it above Level 1, but it's in an imageDescription, which is also ignored.
 				  </div>
 				</div>
-				<div class=' bloom-textOverPicture'>
-				  <div class='bloom-translationGroup'>
-					<div class='bloom-editable' lang='en'>This is a bunch of really really long text that would bump it above Level 1, but it's in an imageDescription, which is also ignored.
-					</div>
-				  </div>
-				</div>
+				{page1TextOverPictureHtml}
               </div>
             </div>
           </div>
@@ -258,8 +253,8 @@ $@"<html>
           <div class='split-pane-component position-bottom' style='height: 50%'>
             <div class='split-pane-component-inner'>
               <div class='bloom-translationGroup bloom-trailingElement' data-default-languages='auto'>
-				<div class='bloom-editable' lang='en'>{page1Text}</div>
-				<div class='bloom-editable' lang='es'>Este texto va a ser ignored porque no es en la lingua prima del libro. Uno dos tres cuatro cinco seis siete ocho nueve diaz.</div>
+				<div class='bloom-editable' lang='en'><p>{page1Text}</p></div>
+				<div class='bloom-editable' lang='es'><p>Este texto va a ser ignored porque no es en la lingua prima del libro. Uno dos tres cuatro cinco seis siete ocho nueve diaz.</p></div>
               </div>
             </div>
           </div>
@@ -273,71 +268,195 @@ $@"<html>
 			return html;
 		}
 
-		[TestCase("One.Two.Three.Four.Five.Six.Seven.Eight.Nine.Ten.Eleven", 1, Description = "Punctuation test")]
-		public void TestBookLevel(string input, int expectedLevel)
+		/// <summary>
+		/// We have a bunch of tests for the computedLevel
+		/// This function drives the test from its most direct input, the html
+		/// We have a bunch of other public functions which generate the html for various test scenarios that can call this
+		/// to run the core test for them
+		/// </summary>
+		/// <param name="html"></param>
+		/// <param name="expectedLevel"></param>
+		private void TestBookHtmlReturnsExpectedLevel(string html, int expectedLevel)
 		{
-			string html = CreateHtmlForGetBookLevelTests($"<p>{input}</p>");
-
+			// Final Setup
 			var analyzer = new BookAnalyzer(html, GetMetaData());
-			Assert.That(analyzer.GetBookComputedLevel(), Is.EqualTo(expectedLevel));
+
+			// System under test
+			var computedLevel = analyzer.GetBookComputedLevel();
+
+			// Verification
+			Assert.That(computedLevel, Is.EqualTo(expectedLevel));
 		}
 
-		[TestCase(0)]
-		[TestCase(1)]
-		[TestCase(2)]
-		[TestCase(10)]
-		public void GetBookLevel_Level1Book(int numWords)
+		[TestCase("One.Two.Three.Four.Five.Six.Seven.Eight.Nine.Ten.Eleven", 1, Description = "Punctuation test")]
+		public void GetBookComputedLevel_BasicBook_ReturnsExpectedLevel(string input, int expectedLevel)
+		{
+			string html = GetHtmlForGetBookLevelTests(input, "");
+			TestBookHtmlReturnsExpectedLevel(html, expectedLevel);
+		}
+
+		[TestCase(0, 1)]
+		[TestCase(1, 1)]
+		[TestCase(2, 1)]
+		[TestCase(10, 1)]
+		[TestCase(11, 2)]
+		[TestCase(25, 2)]
+		[TestCase(26, 3)]
+		[TestCase(50, 3)]
+		[TestCase(51, 4)]
+		public void GetBookComputedLevel_BasicBookWithNWords_ReturnsExpectedLevel(int numWords, int expectedLevel)
+		{
+			string input = MakeStringOfXwords(numWords);
+			GetBookComputedLevel_BasicBook_ReturnsExpectedLevel(input, expectedLevel);
+		}
+		
+		private static string MakeStringOfXwords(int numWords)
 		{
 			var list = new List<string>();
 			for (int i = 0; i < numWords; ++i)
 			{
 				list.Add((i).ToString());
 			}
-			string input = String.Join(" ", list);
-
-			TestBookLevel(input, 1);
+			return String.Join(" ", list);
 		}
 
-		[TestCase(11)]
-		[TestCase(25)]
-		public void GetBookLevel_Level2Book(int numWords)
+		// Make sure that comic books aren't returning level 1 all the time, which they used to, at one point
+		[TestCase(0, 1)]
+		[TestCase(1, 1)]
+		[TestCase(2, 1)]
+		[TestCase(10, 1)]
+		[TestCase(11, 2)]
+		[TestCase(25, 2)]
+		[TestCase(26, 3)]
+		[TestCase(50, 3)]
+		[TestCase(51, 4)]
+		public void GetBookComputedLevel_ComicBooksWithNWords_ReturnsExpectedLevel(int numWords, int expectedLevel)
 		{
-			var list = new List<string>();
-			for (int i = 0; i < numWords; ++i)
-			{
-				list.Add((i).ToString());
-			}
-			string input = String.Join(" ", list);
+			string input = MakeStringOfXwords(numWords);
+			string textOverPictureHtml =
+				@"<svg class='comical-generated' viewBox='0,0,405,334' height='334' width='405' xmlns:xlink='http://www.w3.org/1999/xlink' xmlns='http://www.w3.org/2000/svg' version='1.1'><g style='mix-blend-mode: normal' text-anchor='start' font-size='12' font-weight='normal' font-family='sans-serif' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='1' stroke='none' fill-rule='nonzero' fill='none'></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='#000000' fill-rule='nonzero' fill='none'><path id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1' d='M197,79.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path d='M247.66671,124.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='none' fill-rule='nonzero' fill='#ffffff'><path stroke='#ffffff' stroke-opacity='0' id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1 1' d='M197,79.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path stroke='#ffffff' stroke-opacity='0.01' d='M247.66671,124.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='#000000' fill-rule='nonzero' fill='none'><path id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1' d='M164,207.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path d='M214.66671,252.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='none' fill-rule='nonzero' fill='#ffffff'><path stroke='#ffffff' stroke-opacity='0' id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1 1' d='M164,207.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path stroke='#ffffff' stroke-opacity='0.01' d='M214.66671,252.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='start' font-size='12' font-weight='normal' font-family='sans-serif' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='1' stroke='none' fill-rule='nonzero' fill='none'></g></svg>
+                <div data-bubble='{`version`:`1.0`,`style`:`speech`,`tails`:[{`tipX`:337,`tipY`:139,`midpointX`:296,`midpointY`:133,`autoCurve`:true}],`level`:1}' style='left: 31.1477%; top: 26.6435%; width: 34.4672%; height: 8.95077%;' class='bloom-textOverPicture ui-resizable ui-draggable'>
+                    <div class='bloom-translationGroup bloom-leadingElement' data-default-languages='V'>
+                        <div data-languagetipcontent='English' aria-label='false' role='textbox' spellcheck='true' tabindex='0' class='bloom-editable Bubble-style bloom-content1 bloom-contentNational1 bloom-visibility-code-on' contenteditable='true' lang='en'>
+                            <p>" + input + @"</p>
+                        </div>
+                    </div>
+                </div>";
 
-			TestBookLevel(input, 2);
+			string html = GetHtmlForGetBookLevelTests("", textOverPictureHtml);
+
+			TestBookHtmlReturnsExpectedLevel(html, expectedLevel);
 		}
 
-		[TestCase(26)]
-		[TestCase(50)]
-		public void GetBookLevel_Level3Book(int numWords)
+		// Multiple bubbles - all the words on the page should be summed up
+		[TestCase(0, 0, 1)]
+		// Adds to 1
+		[TestCase(1, 0, 1)]
+		[TestCase(0, 1, 1)]
+		// Adds to 2
+		[TestCase(2, 0, 1)]
+		[TestCase(0, 2, 1)]
+		[TestCase(1, 1, 1)]
+		// Adds to 10 (L1 Max)
+		[TestCase(10, 0, 1)]
+		[TestCase(0, 10, 1)]
+		[TestCase(5, 5, 1)]
+		// Adds to 11 (L2 Min)
+		[TestCase(11, 0, 2)]
+		[TestCase(0, 11, 2)]
+		[TestCase(6, 5, 2)]
+		// Adds to 25 (L2 Max)
+		[TestCase(25, 0, 2)]
+		[TestCase(0, 25, 2)]
+		[TestCase(13, 12, 2)]
+		// Adds to 26 (L3 Min)
+		[TestCase(26, 0, 3)]
+		[TestCase(0, 26, 3)]
+		[TestCase(13, 13, 3)]
+		// Adds to 50 (L3 Max)
+		[TestCase(50, 0, 3)]
+		[TestCase(0, 50, 3)]
+		[TestCase(25, 25, 3)]
+		// Adds to 51 (L4 Min)
+		[TestCase(51, 0, 4)]
+		[TestCase(0, 51, 4)]
+		[TestCase(26, 25, 4)]
+		public void GetBookComputedLevel_ComicBooksWithTwoBubbles_ReturnsExpectedLevel(int numWords1, int numWords2, int expectedLevel)
 		{
-			var list = new List<string>();
-			for (int i = 0; i < numWords; ++i)
-			{
-				list.Add((i).ToString());
-			}
-			string input = String.Join(" ", list);
+			string bubble1Text = MakeStringOfXwords(numWords1);
+			string bubble2Text = MakeStringOfXwords(numWords2);
 
-			TestBookLevel(input, 3);
+			string textOverPictureHtml =
+				@"<div data-bubble='{`version`:`1.0`,`style`:`speech`,`tails`:[{`tipX`:304,`tipY`:267,`midpointX`:263,`midpointY`:261,`autoCurve`:true}],`level`:2}' style='left: 23.0233%; top: 64.8334%; width: 34.4672%; height: 8.95077%;' class='bloom-textOverPicture ui-resizable ui-draggable'>
+                    <div class='bloom-translationGroup bloom-leadingElement' data-default-languages='V'>
+                        <div aria-label='false' role='textbox' spellcheck='true' tabindex='0' data-languagetipcontent='English' class='bloom-editable Bubble-style bloom-content1 bloom-contentNational1 bloom-visibility-code-on' contenteditable='true' lang='en'>
+                            <p>" + bubble1Text + @"</p>
+                        </div>
+                    </div>
+                </div><svg class='comical-generated' viewBox='0,0,405,334' height='334' width='405' xmlns:xlink='http://www.w3.org/1999/xlink' xmlns='http://www.w3.org/2000/svg' version='1.1'><g style='mix-blend-mode: normal' text-anchor='start' font-size='12' font-weight='normal' font-family='sans-serif' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='1' stroke='none' fill-rule='nonzero' fill='none'></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='#000000' fill-rule='nonzero' fill='none'><path id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1' d='M197,79.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path d='M247.66671,124.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='none' fill-rule='nonzero' fill='#ffffff'><path stroke='#ffffff' stroke-opacity='0' id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1 1' d='M197,79.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path stroke='#ffffff' stroke-opacity='0.01' d='M247.66671,124.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='#000000' fill-rule='nonzero' fill='none'><path id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1' d='M164,207.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path d='M214.66671,252.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='none' fill-rule='nonzero' fill='#ffffff'><path stroke='#ffffff' stroke-opacity='0' id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1 1' d='M164,207.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path stroke='#ffffff' stroke-opacity='0.01' d='M214.66671,252.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='start' font-size='12' font-weight='normal' font-family='sans-serif' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='1' stroke='none' fill-rule='nonzero' fill='none'></g></svg>
+
+                <div data-bubble='{`version`:`1.0`,`style`:`speech`,`tails`:[{`tipX`:337,`tipY`:139,`midpointX`:296,`midpointY`:133,`autoCurve`:true}],`level`:1}' style='left: 31.1477%; top: 26.6435%; width: 34.4672%; height: 8.95077%;' class='bloom-textOverPicture ui-resizable ui-draggable'>
+                    <div class='bloom-translationGroup bloom-leadingElement' data-default-languages='V'>
+                        <div data-languagetipcontent='English' aria-label='false' role='textbox' spellcheck='true' tabindex='0' class='bloom-editable Bubble-style bloom-content1 bloom-contentNational1 bloom-visibility-code-on' contenteditable='true' lang='en'>
+                            <p>" + bubble2Text + @"</p>
+                        </div>
+                    </div>
+                </div>";
+
+			string html = GetHtmlForGetBookLevelTests("", textOverPictureHtml);
+			TestBookHtmlReturnsExpectedLevel(html, expectedLevel);
 		}
 
-		[TestCase(51)]
-		[TestCase(75)]
-		public void GetBookLevel_Level4Book(int numWords)
+		// Mix of normal text boxes and comic speech bubbles - they should all be added up
+		[TestCase(0, 0, 1)]
+		// Adds to 1
+		[TestCase(1, 0, 1)]
+		[TestCase(0, 1, 1)]
+		// Adds to 2
+		[TestCase(2, 0, 1)]
+		[TestCase(0, 2, 1)]
+		[TestCase(1, 1, 1)]
+		// Adds to 10 (L1 Max)
+		[TestCase(10, 0, 1)]
+		[TestCase(0, 10, 1)]
+		[TestCase(5, 5, 1)]
+		// Adds to 11 (L2 Min)
+		[TestCase(11, 0, 2)]
+		[TestCase(0, 11, 2)]
+		[TestCase(6, 5, 2)]
+		// Adds to 25 (L2 Max)
+		[TestCase(25, 0, 2)]
+		[TestCase(0, 25, 2)]
+		[TestCase(13, 12, 2)]
+		// Adds to 26 (L3 Min)
+		[TestCase(26, 0, 3)]
+		[TestCase(0, 26, 3)]
+		[TestCase(13, 13, 3)]
+		// Adds to 50 (L3 Max)
+		[TestCase(50, 0, 3)]
+		[TestCase(0, 50, 3)]
+		[TestCase(25, 25, 3)]
+		// Adds to 51 (L4 Min)
+		[TestCase(51, 0, 4)]
+		[TestCase(0, 51, 4)]
+		[TestCase(26, 25, 4)]
+		public void GetBookComputedLevel_TextBoxAndComicBubbleWithNWords_ReturnsExpectedLevel(int numWords1, int numWords2, int expectedLevel)
 		{
-			var list = new List<string>();
-			for (int i = 0; i < numWords; ++i)
-			{
-				list.Add((i).ToString());
-			}
-			string input = String.Join(" ", list);
+			string textBoxText = MakeStringOfXwords(numWords1);
+			string bubbleText = MakeStringOfXwords(numWords2);
 
-			TestBookLevel(input, 4);
+			string textOverPictureHtml =
+				@"<svg class='comical-generated' viewBox='0,0,405,334' height='334' width='405' xmlns:xlink='http://www.w3.org/1999/xlink' xmlns='http://www.w3.org/2000/svg' version='1.1'><g style='mix-blend-mode: normal' text-anchor='start' font-size='12' font-weight='normal' font-family='sans-serif' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='1' stroke='none' fill-rule='nonzero' fill='none'></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='#000000' fill-rule='nonzero' fill='none'><path id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1' d='M197,79.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path d='M247.66671,124.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='none' fill-rule='nonzero' fill='#ffffff'><path stroke='#ffffff' stroke-opacity='0' id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1 1' d='M197,79.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path stroke='#ffffff' stroke-opacity='0.01' d='M247.66671,124.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='#000000' fill-rule='nonzero' fill='none'><path id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1' d='M164,207.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path d='M214.66671,252.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='none' font-size='none' font-weight='none' font-family='none' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='3' stroke='none' fill-rule='nonzero' fill='#ffffff'><path stroke='#ffffff' stroke-opacity='0' id='ie5683671-0bce-4883-e8fc-35001dd3b430outlineShape 1 1' d='M164,207.29954c47.82704,0 79.71173,4.94009 79.71173,24.70046c0,19.76037 -31.88469,24.70046 -79.71173,24.70046c-47.82704,0 -79.71173,-4.94009 -79.71173,-24.70046c0,-19.76037 31.88469,-24.70046 79.71173,-24.70046z'></path><path stroke='#ffffff' stroke-opacity='0.01' d='M214.66671,252.79386c0,0 23.61628,6.87804 47.81278,10.72586c20.57453,3.27184 41.52051,3.48028 41.52051,3.48028v0c0,0 -20.6147,-2.75919 -40.47949,-8.51972c-15.5364,-4.50535 -30.16942,-8.48333 -30.06961,-11.9386'></path></g><g style='mix-blend-mode: normal' text-anchor='start' font-size='12' font-weight='normal' font-family='sans-serif' stroke-dashoffset='0' stroke-dasharray='' stroke-miterlimit='10' stroke-linejoin='miter' stroke-linecap='butt' stroke-width='1' stroke='none' fill-rule='nonzero' fill='none'></g></svg>
+                <div data-bubble='{`version`:`1.0`,`style`:`speech`,`tails`:[{`tipX`:337,`tipY`:139,`midpointX`:296,`midpointY`:133,`autoCurve`:true}],`level`:1}' style='left: 31.1477%; top: 26.6435%; width: 34.4672%; height: 8.95077%;' class='bloom-textOverPicture ui-resizable ui-draggable'>
+                    <div class='bloom-translationGroup bloom-leadingElement' data-default-languages='V'>
+                        <div data-languagetipcontent='English' aria-label='false' role='textbox' spellcheck='true' tabindex='0' class='bloom-editable Bubble-style bloom-content1 bloom-contentNational1 bloom-visibility-code-on' contenteditable='true' lang='en'>
+                            <p>" + bubbleText + @"</p>
+                        </div>
+                    </div>
+                </div>";
+
+			string html = GetHtmlForGetBookLevelTests(textBoxText, textOverPictureHtml);
+			TestBookHtmlReturnsExpectedLevel(html, expectedLevel);
 		}
 
 		#region GetWordCount
