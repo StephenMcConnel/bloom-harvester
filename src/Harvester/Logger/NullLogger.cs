@@ -8,6 +8,20 @@ namespace BloomHarvester.Logger
 	// This class is used when you don't want to actually log anything and just want to send it to /dev/null instead.
 	class NullLogger : IMonitorLogger
 	{
+		// A semi-singleton pattern, except not enforcing it via private constructor
+		private static NullLogger _instance;
+		public static NullLogger Instance
+		{
+			get
+			{
+				if (_instance == null)
+				{
+					_instance = new NullLogger();
+				}
+				return _instance;
+			}
+		}
+
 		public void Dispose()
 		{
 		}

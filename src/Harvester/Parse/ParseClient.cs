@@ -302,6 +302,7 @@ namespace BloomHarvester.Parse
 			List<BookModel> results = GetAllResults<BookModel>(request, out didExitPrematurely);
 			results.ForEach(book => book.MarkAsDatabaseVersion());
 
+			Console.Out.WriteLine($"{results.Count} matching results.");
 			return results;
 		}
 				

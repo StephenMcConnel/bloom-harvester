@@ -27,6 +27,7 @@
 		<PackageReference Include="Microsoft.ApplicationInsights.TraceListener" Version="2.10.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
 		<PackageReference Include="RestSharp" Version="105.2.3" />
+		<PackageReference Include="System.ValueTuple" Version="4.5.0" />
 	</ItemGroup>
 
 	<ItemGroup>

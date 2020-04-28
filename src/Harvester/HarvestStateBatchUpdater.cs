@@ -38,7 +38,7 @@ namespace BloomHarvester
 		/// </summary>
 		private void BatchUpdateStates()
 		{
-			IEnumerable<BookModel> bookList = this.ParseClient.GetBooks(out bool didExitPrematurely, _options.QueryWhere);
+			IEnumerable<BookModel> bookList = _parseClient.GetBooks(out bool didExitPrematurely, _options.QueryWhere);
 
 			if (didExitPrematurely)
 			{
@@ -59,7 +59,7 @@ namespace BloomHarvester
 				if (!IsDryRun)
 				{
 					bookModel.HarvestState = newStateStr;
-					bookModel.FlushUpdateToDatabase(this.ParseClient);
+					bookModel.FlushUpdateToDatabase(_parseClient);
 				}
 			}
 

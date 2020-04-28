@@ -10,7 +10,11 @@ namespace BloomHarvester
 {
 	class ProcessedFilesInfoGenerator : Harvester
 	{
+		private string _downloadBucketName;
+		private string _uploadBucketName;
+
 		private string OutputPath { get; set; }
+
 		private ProcessedFilesInfoGenerator(GenerateProcessedFilesTSVOptions options)
 			:base(new HarvesterOptions() {
 				QueryWhere = options.QueryWhere,
@@ -19,6 +23,9 @@ namespace BloomHarvester
 				SuppressLogs = true
 			})
 		{
+			var parseDBEnvironment = EnvironmentUtils.GetEnvOrFallback(options.ParseDBEnvironment, options.Environment);
+			(_downloadBucketName, _uploadBucketName) = Harvester.GetS3BucketNames(parseDBEnvironment);
+
 			OutputPath = options.OutputPath;
 		}
 
@@ -39,7 +46,7 @@ namespace BloomHarvester
 			}
 
 			string[] fieldsToDereference = new string[] { "langPointers", "uploader" };
-			IEnumerable<BookModel> bookList = this.ParseClient.GetBooks(out bool didExitPrematurely, _options.QueryWhere, fieldsToDereference);
+			IEnumerable<BookModel> bookList = _parseClient.GetBooks(out bool didExitPrematurely, _options.QueryWhere, fieldsToDereference);
 
 			if (didExitPrematurely)
 			{
