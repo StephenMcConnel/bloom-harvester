@@ -541,7 +541,7 @@ namespace BloomHarvester
 				string urlWithoutTitle = RemoveBookTitleFromBaseUrl(decodedUrl);
 
 				// Note: If there are multiple instances of the Harvester processing the same environment,
-				//       and they both process the same book, they will attempt to downlaod to the same path, which will probably be bad.
+				//       and they both process the same book, they will attempt to download to the same path, which will probably be bad.
 				//       But for now, the benefit of having each run download into a predictable location (allows caching when enabled)
 				//       seems to outweigh the cost (since we don't normally run multiple instances w/the same env on same machine)
 				string downloadRootDir = Path.Combine(Path.GetTempPath(), Path.Combine("BloomHarvester", this.Identifier));
@@ -576,9 +576,8 @@ namespace BloomHarvester
 						book.Analyzer = analyzer;
 
 						isSuccessful &= CreateArtifacts(decodedUrl, downloadBookDir, collectionFilePath, book, harvestLogEntries);
-						// TODO: if not successful, I guess you can update artifact suitability to say all false/empty. It makes things less confusing to Bloom Library admins than saying true.
-						if (isSuccessful)
-							UpdateSuitabilityofArtifacts(book, analyzer);
+						// If not successful, update artifact suitability to say all false. (BL-8413)
+						UpdateSuitabilityofArtifacts(book, analyzer, isSuccessful);
 
 						book.SetTags();
 					}
@@ -615,10 +614,25 @@ namespace BloomHarvester
 				string bookId = book.Model?.ObjectId ?? "null";
 				string bookUrl = book.Model?.BaseUrl ?? "null";
 				string errorMessage = $"Unhandled exception \"{e.Message}\" thrown.";
+				// On rare occasions, someone may delete a book just as we're processing it.  If that happens, don't bother
+				// reporting a bug to YouTrack. (BH-5480 & BL-8388)
+				var skipBugReport = bookId != "null" && bookUrl != "null" &&
+				                    ((e is ParseException && errorMessage.Contains("Response.Code: NotFound")) ||
+				                     (e is DirectoryNotFoundException && errorMessage.Contains("tried to download")));
+				if (skipBugReport)
+				{
+					_logger.TrackEvent("Possible book deletion");
+					var msgFormat =
+						$"ProcessOneBook - Exception caught, book {bookId} ({bookUrl}) may have been deleted.{Environment.NewLine}{{0}}";
+					_logger.LogWarn(msgFormat, e.Message);
+					// If the book has been deleted, the parse table row will also have been deleted.
+					// (In fact, that's what a ParseException with NotFound is telling us.)
+					return isSuccessful;
+				}
 				_issueReporter.ReportException(e, errorMessage, book.Model, _parseDBEnvironment, exitImmediately: false);
 
 				// Attempt to write to Parse that processing failed
-				if (!String.IsNullOrEmpty(book.Model?.ObjectId))
+				if (!String.IsNullOrEmpty(book.Model?.ObjectId) && !skipBugReport)
 				{
 					try
 					{
@@ -647,18 +661,18 @@ namespace BloomHarvester
 			return BookAnalyzer.FromFolder(downloadBookDir);
 		}
 
-		private void UpdateSuitabilityofArtifacts(Book book, IBookAnalyzer analyzer)
+		private void UpdateSuitabilityofArtifacts(Book book, IBookAnalyzer analyzer, bool isSuccessful)
 		{
 			if (!_options.SkipUploadEPub)
 			{
-				book.SetHarvesterEvaluation("epub", analyzer.IsEpubSuitable());
+				book.SetHarvesterEvaluation("epub", isSuccessful && analyzer.IsEpubSuitable());
 			}
 
 			// harvester never makes pdfs at the moment.
 
 			if (!_options.SkipUploadBloomDigitalArtifacts)
 			{
-				var isBloomReaderGood = analyzer.IsBloomReaderSuitable();
+				var isBloomReaderGood = isSuccessful && analyzer.IsBloomReaderSuitable();
 				book.SetHarvesterEvaluation("bloomReader", isBloomReaderGood);
 				book.SetHarvesterEvaluation("readOnline", isBloomReaderGood);
 			}
@@ -1063,7 +1077,7 @@ namespace BloomHarvester
 		private void UploadBloomDigitalArtifacts(string zippedBloomDPath, string unzippedFolderPath, string s3FolderLocation)
 		{
 			_logger.TrackEvent("Upload .bloomd");
-			_s3UploadClient.UploadFile(zippedBloomDPath, s3FolderLocation);
+			_s3UploadClient.UploadFile(zippedBloomDPath, s3FolderLocation, "no-cache");
 
 			_logger.TrackEvent("Upload bloomdigital directory");
 			// Clear out the directory first to make sure stale artifacts get removed.
@@ -1083,7 +1097,7 @@ namespace BloomHarvester
 			_logger.TrackEvent("Upload .epub");
 			string folderToUploadTo = $"{s3FolderLocation}/epub";
 			_s3UploadClient.DeleteDirectory(folderToUploadTo);
-			_s3UploadClient.UploadFile(epubPath, folderToUploadTo);
+			_s3UploadClient.UploadFile(epubPath, folderToUploadTo, "no-cache");
 		}
 
 		/// <summary>
@@ -1111,7 +1125,7 @@ namespace BloomHarvester
 					if (SIL.IO.RobustFile.Exists(thumbnailPath))
 					{
 						_logger.TrackEvent("Upload thumbnail");
-						_s3UploadClient.UploadFile(thumbnailPath, folderToUploadTo);
+						_s3UploadClient.UploadFile(thumbnailPath, folderToUploadTo, "max-age=31536000");	// 60 * 60 * 24 * 365 = 1 year in seconds
 					}
 				}
 			}

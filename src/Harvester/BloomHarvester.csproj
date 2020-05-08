@@ -5,6 +5,7 @@
 		<AssemblyVersion>4.2.0.0</AssemblyVersion>
 		<AssemblyFileVersion>4.2.0.0</AssemblyFileVersion>
 		<AssemblyInformationalVersion>4.2.0.0</AssemblyInformationalVersion>
+		<LangVersion>7.1</LangVersion>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -54,10 +55,6 @@
 		</Reference>
 		<Reference Include="System.Web" />
 		<Reference Include="System.Windows.Forms" />
-
-		<Reference Include="YouTrackSharp">
-			<HintPath>..\..\lib\dotnet\YouTrackSharp.dll</HintPath>
-		</Reference>
 	</ItemGroup>
 
 	<Target Name="PreBuild" BeforeTargets="PreBuildEvent">

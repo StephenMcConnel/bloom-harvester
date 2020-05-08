@@ -4,11 +4,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using YouTrackSharp.Infrastructure;
-using YouTrackSharp.Issues;
 
 
-namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put in Bloom.web or Bloom.Communication instead?
+namespace BloomHarvester.WebLibraryIntegration
 {
 	internal interface IIssueReporter
 	{
@@ -24,7 +22,6 @@ namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put 
 		{
 		}
 
-		private static readonly string _issueTrackingBackend = "issues.bloomlibrary.org";
 		private static readonly string _youTrackProjectKeyErrors = "BH";  // Or "SB" for Sandbox
 		private static readonly string _youTrackProjectKeyMissingFonts = "BH";  // Or "SB" for Sandbox
 
@@ -78,7 +75,7 @@ namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put 
 			}
 		}
 
-		private static string SubmitToYouTrack(string summary, string description, string youTrackProjectKey)
+		internal static string SubmitToYouTrack(string summary, string description, string youTrackProjectKey)
 		{
 			bool isSilenced = AlertManager.Instance.RecordAlertAndCheckIfSilenced();
 			if (isSilenced)
@@ -87,18 +84,8 @@ namespace BloomHarvester.WebLibraryIntegration   // Review: Could posisibly put 
 				// Skip creating the YouTrack issue for this.
 				return "";
 			}
-
-			Connection youTrackConnection = new Connection(_issueTrackingBackend, 0, true, "youtrack");
-			youTrackConnection.Authenticate("auto_report_creator", "thisIsInOpenSourceCode");
-			var issueManagement = new IssueManagement(youTrackConnection);
-			dynamic youTrackIssue = new Issue();
-			youTrackIssue.ProjectShortName = youTrackProjectKey;
-			youTrackIssue.Type = "Awaiting Classification";
-			youTrackIssue.Summary = summary;
-			youTrackIssue.Description = description;
-			string youTrackIssueId = issueManagement.CreateIssue(youTrackIssue);
-			
-			return youTrackIssueId;
+			var submitter = new Bloom.YouTrackIssueSubmitter(youTrackProjectKey);
+			return submitter.SubmitToYouTrack(summary, description);
 		}
 
 		public void ReportException(Exception exception, string additionalDescription, BookModel bookModel, EnvironmentSetting environment, bool exitImmediately = true)
