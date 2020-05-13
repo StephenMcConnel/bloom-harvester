@@ -283,7 +283,8 @@ namespace BloomHarvester.Parse
 		{
 			var request = new RestRequest("classes/books", Method.GET);
 			SetCommonHeaders(request);
-			request.AddParameter("keys", "object_id,baseUrl,harvestState,harvesterMajorVersion,harvesterMinorVersion,harvestLog,harvestStartedAt,show,title,inCirculation,langPointers,uploader,features,tags,phashOfFirstContentImage");
+			string keysToRetrieve = String.Join(",", BookModel.GetParseKeys());
+			request.AddParameter("keys", keysToRetrieve);
 
 			if (!String.IsNullOrEmpty(whereCondition))
 			{
@@ -323,7 +324,7 @@ namespace BloomHarvester.Parse
 				// Make sure you don't have duplicate instances of a lot of these parameters, especially limit and skip.
 				// Parse will not give you the results you want if you have them multiple times.
 				AddOrReplaceParameter(request, "count", "1");
-				AddOrReplaceParameter(request, "limit", "1000");   // The limit should probably be on the higher side. The fewer DB calls, the better, probably.
+				AddOrReplaceParameter(request, "limit", "10000");   // The limit should probably be on the higher side. The fewer network DB calls, the better, probably.
 				AddOrReplaceParameter(request, "order", "createdAt");
 				AddOrReplaceParameter(request, "skip", numProcessed.ToString());
 
