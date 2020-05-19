@@ -162,9 +162,9 @@ namespace BloomHarvesterTests
 		}
 
 		[Test]
-		public void Branding_Missing()
+		public void Branding_Missing_SetToDefault()
 		{
-			Assert.That(_monolingualBookInBilingualCollectionAnalyzer.Branding, Is.Null);
+			Assert.That(_monolingualBookInBilingualCollectionAnalyzer.Branding, Is.EqualTo("Default"));
 		}
 
 		[Test]

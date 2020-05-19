@@ -42,6 +42,13 @@ namespace BloomHarvester
 		[STAThread]
 		public static void Main(string[] args)
 		{
+			if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+			{
+				// See  https://issues.bloomlibrary.org/youtrack/issue/BL-8475.
+				Console.WriteLine("Harvester cannot run on Linux until we verify that phash computations always yield the same result on both Windows and Linux!");
+				return;
+			}
+
 			// See https://github.com/commandlineparser/commandline for documentation about CommandLine.Parser
 			var parser = new CommandLine.Parser((settings) =>
 			{

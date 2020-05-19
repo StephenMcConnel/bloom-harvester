@@ -41,6 +41,13 @@ namespace BloomHarvester
 			{
 				this.Branding = metaObj.brandingProjectName;
 			}
+			else
+			{
+				// If we don't set this default value, then the epub will not build successfully. (The same is probably true for the
+				// bloomd file.)  We get a "Failure to completely load visibility document in RemoveUnwantedContent" exception thrown.
+				// See https://issues.bloomlibrary.org/youtrack/issue/BL-8485.
+				this.Branding = "Default";
+			}
 
 			string pageNumberStyle = null;
 			if (metaObj.IsDefined("page-number-style"))
