@@ -49,7 +49,7 @@ namespace BloomHarvester
 		protected readonly IBloomCliInvoker _bloomCli;
 		private readonly IFontChecker _fontChecker;
 		protected readonly IMonitorLogger _logger;
-		private readonly DiskSpaceManager _diskSpaceManager;
+		private readonly IDiskSpaceManager _diskSpaceManager;
 		protected readonly IFileIO _fileIO;
 
 		internal bool IsDebug { get; set; }
@@ -127,6 +127,7 @@ namespace BloomHarvester
 			_bloomCli = bloomCliInvoker;
 			_fontChecker = fontChecker;
 			_logger = logger;
+			_diskSpaceManager = diskSpaceManager;
 			_fileIO = fileIO;
 
 			// Additional constructor setup
