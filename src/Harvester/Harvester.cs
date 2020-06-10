@@ -37,6 +37,7 @@ namespace BloomHarvester
 
 		// These vars handle the application being exited while a book is still InProgress
 		private string _currentBookId = null;   // The ID of the current book for as long as that book has the "InProgress" state set on it. Should be set back to null/empty when the state is no longer "InProgress"
+		private bool _currentBookFailedIndefinitely;	// flag that this book started with HarvestState = "FailedIndefinitely" and should stay there unless successful
 		static ConsoleEventDelegate consoleExitHandler;
 		private delegate bool ConsoleEventDelegate(int eventType);
 
@@ -268,7 +269,11 @@ namespace BloomHarvester
 				if (!String.IsNullOrEmpty(_currentBookId))
 				{
 					var updateOp = BookModel.GetNewBookUpdateOperation();
-					updateOp.UpdateFieldWithString(BookModel.kHarvestStateField, Parse.Model.HarvestState.Aborted.ToString());
+
+					if (_currentBookFailedIndefinitely)
+						updateOp.UpdateFieldWithString(BookModel.kHarvestStateField, HarvestState.FailedIndefinitely.ToString());
+					else
+						updateOp.UpdateFieldWithString(BookModel.kHarvestStateField, HarvestState.Aborted.ToString());
 					_parseClient.UpdateObject(BookModel.GetStaticParseClassName(), _currentBookId, updateOp.ToJson());
 					return true;
 				}
@@ -574,6 +579,7 @@ namespace BloomHarvester
 				// Parse DB initial updates
 				// We want to write that it is InProgress as soon as possible, but we also want a copy of the original state
 				var originalBookModel  = (BookModel)book.Model.Clone();
+				_currentBookFailedIndefinitely = originalBookModel.HarvestState?.ToLowerInvariant() == HarvestState.FailedIndefinitely.ToString().ToLowerInvariant();
 				book.Model.HarvestState = Parse.Model.HarvestState.InProgress.ToString();
 				book.Model.HarvesterId = this.Identifier;
 				book.Model.HarvesterMajorVersion = Version.Major;
@@ -648,7 +654,7 @@ namespace BloomHarvester
 				}
 				else
 				{
-					book.Model.HarvestState = Parse.Model.HarvestState.Failed.ToString();
+					SetFailedState(book);
 				}
 
 				// Write the updates
@@ -684,7 +690,7 @@ namespace BloomHarvester
 				{
 					try
 					{
-						book.Model.HarvestState = Parse.Model.HarvestState.Failed.ToString();
+						SetFailedState(book);
 						book.Model.HarvesterId = this.Identifier;
 						if (book.Model.HarvestLogEntries == null)
 						{
@@ -702,6 +708,14 @@ namespace BloomHarvester
 			}
 
 			return isSuccessful;
+		}
+
+		private void SetFailedState(Book book)
+		{
+			if (_currentBookFailedIndefinitely)
+				book.Model.HarvestState = HarvestState.FailedIndefinitely.ToString();
+			else
+				book.Model.HarvestState = HarvestState.Failed.ToString();
 		}
 
 		/// <summary>
@@ -785,25 +799,34 @@ namespace BloomHarvester
 		{
 			Debug.Assert(book != null, "ShouldProcessBook(): Book was null");
 
+			if (!Enum.TryParse(book.HarvestState, out HarvestState state))
+			{
+				throw new Exception($"Invalid book.HarvestState \"{book.HarvestState}\" for book.ObjectId=\"{book.ObjectId}\"");
+			}
+
+			// If we're forcing all books, we're forcing all books.  Go for it.
+			if (harvestMode == HarvestMode.ForceAll)
+			{
+				reason = "PROCESS: Mode = HarvestForceAll";
+				return true;
+			}
+
+			// Skip books that are marked as "failed indefinitely".  They will get processed if they get re-uploaded
+			// (which changes the state to Updated).
+			if (state == HarvestState.FailedIndefinitely)
+			{
+				reason = "SKIP: Marked as failed indefinitely";
+				return false;
+			}
+
+			// Skip books that are explicitly marked as out of circulation.
 			// Note: Beware, IsInCirculation can also be null, and we DO want to process books where isInCirculation==null
 			if (book.IsInCirculation == false)
 			{
-				if (harvestMode == HarvestMode.ForceAll)
-				{
-					reason = "PROCESS: Mode = HarvestForceAll";
-					return true;
-				}
-				else
-				{
-					reason = "SKIP: Not in circulation";
-					return false;
-				}
+				reason = "SKIP: Not in circulation";
+				return false;
 			}
 
-			if (!Enum.TryParse(book.HarvestState, out Parse.Model.HarvestState state))
-			{
-				state = Parse.Model.HarvestState.Unknown;
-			}
 			bool isNewOrUpdatedState = (state == Parse.Model.HarvestState.New || state == Parse.Model.HarvestState.Updated);
 
 			// This is an important exception-to-the-rule case for almost every scenario,
@@ -811,12 +834,6 @@ namespace BloomHarvester
 			bool isStaleState = false;
 			if (state == Parse.Model.HarvestState.InProgress)
 			{
-				if (harvestMode == HarvestMode.ForceAll)
-				{
-					reason = "PROCESS: Mode = HarvestForceAll";
-					return true;
-				}
-
 				// In general, we just skip and let whoever else is working on it do its thing to avoid any potential for getting into strange states.
 				// But if it's been "InProgress" for a suspiciously long time, it seems like it might've crashed. In that case, consider processing it.
 				TimeSpan timeDifference = DateTime.UtcNow - book.HarvestStartedAt.UtcTime;
@@ -831,11 +848,10 @@ namespace BloomHarvester
 				}
 			}
 
-
-			if (harvestMode == HarvestMode.All || harvestMode == HarvestMode.ForceAll)
+			if (harvestMode == HarvestMode.All)
 			{
 				// If settings say to process all books, this is easy. We always return true.
-				reason = $"PROCESS: Mode = Harvest{harvestMode}";
+				reason = $"PROCESS: Mode = HarvestAll";
 				return true;
 			}
 			else if (harvestMode == HarvestMode.NewOrUpdatedOnly)
