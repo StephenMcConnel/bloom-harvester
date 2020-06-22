@@ -11,20 +11,25 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NSubstitute;
+using BloomHarvester.IO;
 
 namespace BloomHarvesterTests
 {
 	[TestFixture]
 	class BookTests
 	{
-		internal static Book CreateDefaultBook()
+		internal static Book CreateDefaultBook(IFileIO fileIO=null)
 		{
-			return new Book(BookModelTests.CreateBookModel(), new NullLogger());
+			if (fileIO == null)
+				fileIO = new FileIO();
+			return new Book(BookModelTests.CreateBookModel(), new NullLogger(), fileIO);
 		}
 
-		internal static Book CreateBook(BookModel model)
+		internal static Book CreateBook(BookModel model, IFileIO fileIO=null)
 		{
-			return new Book(model, new NullLogger());
+			if (fileIO == null)
+				fileIO = new FileIO();
+			return new Book(model, new NullLogger(), fileIO);
 		}
 
 		#region GetTagDictionary

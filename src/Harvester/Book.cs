@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using BloomHarvester.IO;
 using BloomHarvester.LogEntries;
 using BloomHarvester.Logger;
 using BloomHarvester.Parse.Model;
@@ -12,19 +13,21 @@ using SIL.IO;
 namespace BloomHarvester
 {
 	/// <summary>
-	/// This class is a wrapper around a book in the Parse datbase
+	/// This class is a wrapper around a book in the Parse database
 	/// This is where you can put methods for manipulating a book
 	/// </summary>
 	internal class Book
 	{
-		public Book(BookModel bookModel, IMonitorLogger logger)
+		public Book(BookModel bookModel, IMonitorLogger logger, IFileIO fileIO)
 		{
 			Model = bookModel;
 			_logger = logger;
+			_fileIO = fileIO;
 		}
 
 		internal BookModel Model { get; set; }
 		protected IMonitorLogger _logger;
+		protected readonly IFileIO _fileIO;
 
 		internal IBookAnalyzer Analyzer { get; set; }
 
@@ -221,10 +224,10 @@ namespace BloomHarvester
 
 		internal void UpdatePerceptualHash(string infoPath)
 		{
-			if (!RobustFile.Exists(infoPath))
+			if (!_fileIO.Exists(infoPath))
 				return;
 
-			string pHashText = RobustFile.ReadAllText(infoPath).Trim();
+			string pHashText = _fileIO.ReadAllText(infoPath).Trim();
 
 			// The BloomCLI passes these back by writing to a file, so it can't return the null value easily... writes a literal string "null" instead.
 			// convert that back to a proper null value (not a string)
