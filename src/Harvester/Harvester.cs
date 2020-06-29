@@ -571,6 +571,9 @@ namespace BloomHarvester
 		{
 			bool isSuccessful = true;
 			string collectionBookDir = null;
+			// save original values of these options in case they're needed.
+			var skipUploadEPub = _options.SkipUploadEPub;
+			var skipUploadBloomDigitalArtifacts = _options.SkipUploadBloomDigitalArtifacts;
 			try
 			{
 				string message = $"Processing: {book.Model.BaseUrl}";
@@ -621,7 +624,7 @@ namespace BloomHarvester
 					isSuccessful &= CreateArtifacts(decodedUrl, collectionBookDir, collectionFilePath, book,
 						harvestLogEntries);
 					// If not successful, update artifact suitability to say all false. (BL-8413)
-					UpdateSuitabilityOfArtifacts(book, analyzer, isSuccessful, anyFontsMissing);
+					UpdateSuitabilityOfArtifacts(book, analyzer, isSuccessful, anyFontsMissing, harvestLogEntries);
 
 					book.SetTags();
 				}
@@ -676,8 +679,12 @@ namespace BloomHarvester
 						{
 							book.Model.HarvestLogEntries = new List<string>();
 						}
-						var logEntry = new LogEntry(LogLevel.Error, LogType.ProcessBookError, errorMessage);
-						book.Model.HarvestLogEntries.Add(logEntry.ToString());
+						var logEntries = new List<LogEntry>();
+						logEntries.Add(new LogEntry(LogLevel.Error, LogType.ProcessBookError, errorMessage));
+						_options.SkipUploadBloomDigitalArtifacts = skipUploadBloomDigitalArtifacts;
+						_options.SkipUploadEPub = skipUploadEPub;
+						UpdateSuitabilityOfArtifacts(book, null, false, false, logEntries);
+						book.Model.HarvestLogEntries.AddRange(logEntries.Select(x => x.ToString()).ToList());
 						book.Model.FlushUpdateToDatabase(_parseClient);
 					}
 					catch (Exception)
@@ -811,18 +818,24 @@ namespace BloomHarvester
 		/// are marked true or false for showing only if we tried to make them (ie, didn't skip them).  If we skipped one or both
 		/// of them, the previous evaluation is left alone for whatever was skipped.
 		/// </summary>
-		private void UpdateSuitabilityOfArtifacts(Book book, IBookAnalyzer analyzer, bool isSuccessful, bool anyFontsMissing)
+		private void UpdateSuitabilityOfArtifacts(Book book, IBookAnalyzer analyzer, bool isSuccessful, bool anyFontsMissing,
+			List<LogEntry> harvestLogEntries)
 		{
+			if (anyFontsMissing)
+				harvestLogEntries.Add(new LogEntry(LogLevel.Info, LogType.ArtifactSuitability, "No ePUB/BloomPub because of missing font(s)"));
+			else if (!isSuccessful)
+				harvestLogEntries.Add(new LogEntry(LogLevel.Info, LogType.ArtifactSuitability, $"No ePUB/BloomPub because CreateArtifacts failed."));
+
 			if (!_options.SkipUploadEPub || anyFontsMissing)
 			{
-				book.SetHarvesterEvaluation("epub", isSuccessful && analyzer.IsEpubSuitable());
+				book.SetHarvesterEvaluation("epub", isSuccessful && analyzer.IsEpubSuitable(harvestLogEntries));
 			}
 
 			// harvester never makes pdfs at the moment.
 
 			if (!_options.SkipUploadBloomDigitalArtifacts || anyFontsMissing)
 			{
-				var isBloomReaderGood = isSuccessful && analyzer.IsBloomReaderSuitable();
+				var isBloomReaderGood = isSuccessful && analyzer.IsBloomReaderSuitable(harvestLogEntries);
 				book.SetHarvesterEvaluation("bloomReader", isBloomReaderGood);
 				book.SetHarvesterEvaluation("readOnline", isBloomReaderGood);
 			}
@@ -1233,13 +1246,39 @@ namespace BloomHarvester
 			return new HarvesterDriveInfo(driveInfo);
 		}
 
-		private static string GetRootPath() => Path.GetTempPath();
+		private static string GetRootPath()
+		{
+			string path = Environment.GetEnvironmentVariable("BloomHarvesterCacheRootPath");
+			if (!string.IsNullOrEmpty(path))
+			{
+				if (!Directory.Exists(path))
+				{
+					try
+					{
+						Directory.CreateDirectory(path);
+					}
+					catch (Exception e)
+					{
+						Debug.WriteLine($"Cannot create {path} because {e}");
+					}
+				}
+				if (Directory.Exists(path))
+					return path;
+			}
+			// If no special setting, try for the user's local application directory as the root.
+			path = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+			if (!String.IsNullOrEmpty(path) && Directory.Exists(path))
+				return path;
+			// If our attempt to find the user's home directory failed, use the temp directory,
+			// assuming that the .Net/mono runtime knows how to return a good value for this.
+			return Path.GetTempPath();
+		}
 
 		internal string GetBookCollectionPath()
 		{
 			// Note: This has the same problems as the next method for running multiple instances of
 			// Harvester at the same time on the same computer.
-			return Path.Combine(GetRootPath(), "BloomHarvester", "Collection", this.Identifier);
+			return Path.Combine(Path.GetTempPath(), "BloomHarvester", "Collection", this.Identifier);
 		}
 
 		internal string GetBookCacheFolder()
