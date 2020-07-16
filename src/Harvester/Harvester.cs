@@ -627,7 +627,7 @@ namespace BloomHarvester
 					UpdateSuitabilityOfArtifacts(book, analyzer, isSuccessful, anyFontsMissing, harvestLogEntries);
 
 					if (!_options.SkipUpdatePerceptualHash)
-						isSuccessful &= UpdatePerceptualHash(book, analyzer, collectionBookDir);
+						isSuccessful &= UpdatePerceptualHash(book, analyzer, collectionBookDir, harvestLogEntries);
 
 					book.SetTags();
 				}
@@ -758,7 +758,7 @@ namespace BloomHarvester
 			return collectionBookDir;
 		}
 
-		private bool UpdatePerceptualHash(Book book, IBookAnalyzer analyzer, string downloadBookDir)
+		private bool UpdatePerceptualHash(Book book, IBookAnalyzer analyzer, string downloadBookDir, IList<LogEntry> logEntries)
 		{
 			var isSuccessful = true;
 			var startTime = DateTime.Now;
@@ -780,11 +780,12 @@ namespace BloomHarvester
 			}
 			catch (Exception e)
 			{
+				book.Model.PHashOfFirstContentImage = null;
+				isSuccessful = false;
+				logEntries.Add(new LogEntry(LogLevel.Error, LogType.PHashError, "Exception thrown. " + e.Message));
 				_logger.LogWarn("Caught exception computing phash for {0}: {1}", src, e);
 				_logger.LogWarn(e.StackTrace);
 				_issueReporter.ReportException(e, $"Caught exception computing phash for {src}", book.Model, exitImmediately: false);
-				book.Model.PHashOfFirstContentImage = null;
-				isSuccessful = false;
 			}
 			var endTime = DateTime.Now;
 			_logger.LogVerbose("Computing PHash=\"{0}\" for {1}/{2} took {3}", book.Model.PHashOfFirstContentImage, book.Model.ObjectId, src, endTime - startTime);
