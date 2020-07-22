@@ -36,6 +36,12 @@ namespace BloomHarvester
 		internal Version Version;
 		private Random _rng = new Random();
 
+		// BloomPub and other artifacts can be created when ePUBs fail.  This is normally due to the book
+		// have Comic elements.  We don't want to fail harvesting just because Comic books can't have ePubs!
+		// So we check for the ePUB file existing when Bloom finishes and reports success.  This information
+		// is needed when setting Artifact suitability, not just when trying to upload the ePUB.
+		private bool _ePubExists;
+
 		// These vars handle the application being exited while a book is still InProgress
 		private string _currentBookId = null;   // The ID of the current book for as long as that book has the "InProgress" state set on it. Should be set back to null/empty when the state is no longer "InProgress"
 		private bool _currentBookFailedIndefinitely;	// flag that this book started with HarvestState = "FailedIndefinitely" and should stay there unless successful
@@ -871,10 +877,8 @@ namespace BloomHarvester
 
 			if (!_options.SkipUploadEPub || anyFontsMissing)
 			{
-				book.SetHarvesterEvaluation("epub", isSuccessful && analyzer.IsEpubSuitable(harvestLogEntries));
+				book.SetHarvesterEvaluation("epub", isSuccessful && _ePubExists && analyzer.IsEpubSuitable(harvestLogEntries));
 			}
-
-			// harvester never makes pdfs at the moment.
 
 			if (!_options.SkipUploadBloomDigitalArtifacts || anyFontsMissing)
 			{
@@ -882,6 +886,8 @@ namespace BloomHarvester
 				book.SetHarvesterEvaluation("bloomReader", isBloomReaderGood);
 				book.SetHarvesterEvaluation("readOnline", isBloomReaderGood);
 			}
+
+			// harvester never makes pdfs at the moment.
 		}
 
 		private bool ShouldProcessBook(BookModel book, out string reason)
@@ -1248,7 +1254,16 @@ namespace BloomHarvester
 
 						if (!_options.SkipUploadEPub)
 						{
-							UploadEPubArtifact(epubOutputPath, s3FolderLocation);
+							if (_fileIO.Exists(epubOutputPath))
+							{
+								UploadEPubArtifact(epubOutputPath, s3FolderLocation);
+								_ePubExists = true;
+							}
+							else
+							{
+								harvestLogEntries.Add(new LogEntry(LogLevel.Warn, LogType.ArtifactSuitability, "Missing ePUB artifact: likely a comic book"));
+								_ePubExists = false;
+							}
 						}
 
 						if (!_options.SkipUploadThumbnails)

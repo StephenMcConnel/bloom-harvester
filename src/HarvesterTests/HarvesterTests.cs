@@ -750,6 +750,9 @@ namespace BloomHarvesterTests
 				var book = BookTests.CreateDefaultBook();
 				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
+				// Harvester now checks that the epub file exists before trying to upload it.  So fake it.
+				var epubPath = Path.Combine(Path.GetTempPath(), $"BHStaging-{harvester.GetUniqueIdentifier()}", $"{book.Model.Title}.epub");
+				_fakeFileIO.Configure().Exists(epubPath).Returns(true);
 
 				// System under test				
 				harvester.ProcessOneBook(book);
