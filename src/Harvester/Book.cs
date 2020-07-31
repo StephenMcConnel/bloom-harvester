@@ -265,6 +265,11 @@ namespace BloomHarvester
 			{
 				Model.Features = metaData.Features;
 			}
+
+			if (metaData.BrandingProjectName != Model.BrandingProjectName)
+			{
+				Model.BrandingProjectName = metaData.BrandingProjectName;
+			}
 		}
 	}
 }

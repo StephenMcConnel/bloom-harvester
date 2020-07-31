@@ -54,6 +54,7 @@ namespace BloomHarvester.Parse.Model
 				"Features",
 				"Tags",
 				"Show",
+				"BrandingProjectName",
 				"PHashOfFirstContentImage"
 			});
 		}
@@ -112,6 +113,10 @@ namespace BloomHarvester.Parse.Model
 
 		[JsonProperty("phashOfFirstContentImage")]	// Should be phash, not pHash
 		public string PHashOfFirstContentImage { get; set; }
+
+		[JsonProperty("brandingProjectName")]
+		public string BrandingProjectName { get; set; }
+
 		/// <summary>
 		/// A json object used to limit what the Library shows the user for each book.
 		/// For example:
