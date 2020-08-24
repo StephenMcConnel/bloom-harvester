@@ -627,13 +627,16 @@ namespace BloomHarvester
 					var collectionFilePath = analyzer.WriteBloomCollection(collectionBookDir);
 					book.Analyzer = analyzer;
 
+                    // This must run before CreateArtifacts because Bloom can change the actual folder name for
+                    // collectionBookDir if it is an artifact of multiple copies of the same title on the uploader's
+                    // computer.  See https://issues.bloomlibrary.org/youtrack/issue/BH-5551.
+					if (!_options.SkipUpdatePerceptualHash)
+						isSuccessful &= UpdatePerceptualHash(book, analyzer, collectionBookDir, harvestLogEntries);
+
 					isSuccessful &= CreateArtifacts(decodedUrl, collectionBookDir, collectionFilePath, book,
 						harvestLogEntries);
 					// If not successful, update artifact suitability to say all false. (BL-8413)
 					UpdateSuitabilityOfArtifacts(book, analyzer, isSuccessful, anyFontsMissing, harvestLogEntries);
-
-					if (!_options.SkipUpdatePerceptualHash)
-						isSuccessful &= UpdatePerceptualHash(book, analyzer, collectionBookDir, harvestLogEntries);
 
 					book.SetTags();
 				}
