@@ -31,10 +31,25 @@ namespace BloomHarvesterTests
 			Assert.That(missingFontsResult.First(), Is.EqualTo(fontName));
 		}
 
+		// Officially defined generic fallbacks
 		[TestCase("serif")]
 		[TestCase("sans-serif")]
 		[TestCase("monospace")]
-		public void GetMissingFonts_BookContainsFontFamily_NotMarkedAsMissing(string fontFamily)
+		[TestCase("cursive")]
+		[TestCase("fantasy")]
+		[TestCase("system-ui")]
+		[TestCase("ui-serif")]
+		[TestCase("ui-sans-serif")]
+		[TestCase("ui-monospace")]
+		[TestCase("ui-rounded")]
+		[TestCase("math")]
+		[TestCase("emoji")]
+		[TestCase("fangsong")]
+		// Unofficial generic fallbacks
+		[TestCase("宋体")]
+		[TestCase("黑体")]
+		[TestCase("楷体")]
+		public void GetMissingFonts_BookContainsGenericFallback_NotMarkedAsMissing(string fontFamily)
 		{
 			// Assumes that the fontFamily is NOT the name of a real font on the machine running the test
 			IEnumerable<string> fontNamesUsedInBook = new string[] { fontFamily };

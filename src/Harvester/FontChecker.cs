@@ -64,9 +64,9 @@ namespace BloomHarvester
 			var missingFonts = new List<string>();
 			foreach (var bookFontName in bookFontNames)
 			{
-				if (bookFontName == "serif" || bookFontName == "sans-serif" || bookFontName == "monospace")
+				if (IsGenericFontFamily(bookFontName))
 				{
-					// These are fallback families. We don't need to verify the existence of these fonts.
+					// These are generic fallback families. We don't need to verify the existence of these fonts.
 					// The browser or epub reader will automatically supply a fallback font for them.
 					continue;
 				}
@@ -77,6 +77,45 @@ namespace BloomHarvester
 			}
 
 			return missingFonts;
+		}
+
+		private static bool IsGenericFontFamily(string fontName)
+		{
+			bool isGeneric;
+			switch (fontName)
+			{
+				// Officially documented keywords for generic font families
+				case "serif":
+				case "sans-serif":
+				case "monospace":
+				case "cursive":
+				case "fantasy":
+				case "system-ui":
+				case "ui-serif":
+				case "ui-sans-serif":
+				case "ui-monospace":
+				case "ui-rounded":
+				case "math":
+				case "emoji":
+				case "fangsong":
+					isGeneric = true;
+					break;
+
+				// Despite not appearing as official keywords in the documentation,
+				// we see evidence of them being used as generic fallbacks both in general and in occasional Bloom books (presumably hand-edited ones)
+				// Experimentally, we observed this to work somehow or another.
+				case "宋体": // (Song Ti - Chinese equivalent of serif style)
+				case "黑体": // (Hei Ti - Chinese equivalent of sans-serif style)
+				case "楷体": // (Kai Ti - Chinese brush/calligraphy style
+					isGeneric = true;
+					break;
+
+				default:
+					isGeneric = false;
+					break;
+			}
+
+			return isGeneric;
 		}
 
 		/// <summary>
