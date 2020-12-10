@@ -59,6 +59,8 @@ namespace BloomHarvester
 				this.Branding = "Default";
 			}
 
+			var signLanguageCode = GetSignLanguageCode(metaObj);
+
 			string pageNumberStyle = null;
 			if (metaObj.IsDefined("page-number-style"))
 			{
@@ -76,6 +78,7 @@ namespace BloomHarvester
 					new XElement("Language1Iso639Code", new XText(Language1Code)),
 					new XElement("Language2Iso639Code", new XText(Language2Code)),
 					new XElement("Language3Iso639Code", new XText(Language3Code)),
+					new XElement("SignLanguageIso639Code", new XText(signLanguageCode)),
 					new XElement("Language1Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language1Code))),
 					new XElement("Language2Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language2Code))),
 					new XElement("Language3Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language3Code))),
@@ -88,6 +91,32 @@ namespace BloomHarvester
 			using (var writer = XmlWriter.Create(sb))
 				bloomCollectionElement.WriteTo(writer);
 			BloomCollection = sb.ToString();
+		}
+
+		// The only trace in the book that it belongs to a collection with a sign language is that
+		// it is marked as having the sign language feature for that language. This is unfortunate but
+		// the best we can do with the data we're currently uploading. We really need to know this,
+		// because if sign language of the collection is not set, updating the book's features will
+		// remove the language-specific sign language feature, and then we have no way to know it
+		// should be there.
+		// This is not very reliable; the collection might have a sign language but if the book
+		// doesn't have video it will not be reflected in features. However, for now, we only care
+		// about it in order to preserve the language-specific feature, so getting it from the
+		// existing one is good enough.
+		private string GetSignLanguageCode(dynamic metaObj)
+		{
+			if (!metaObj.IsDefined("features"))
+				return "";
+			var features = metaObj.features.Deserialize<string[]>();
+			foreach (string feature in features)
+			{
+				const string marker = "signLanguage:";
+				if (feature.StartsWith(marker))
+				{
+					return feature.Substring(marker.Length);
+				}
+			}
+			return "";
 		}
 
 		private string GetLanguageDisplayNameOrEmpty(dynamic metadata, string isoCode)
