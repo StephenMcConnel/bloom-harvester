@@ -25,9 +25,12 @@
 		<PackageReference Include="CommandLineParser" Version="2.8.0" />
 		<PackageReference Include="DesktopAnalytics" Version="1.2.4.11" />
 		<PackageReference Include="EasyHttp" Version="1.7.0" />
+		<PackageReference Include="L10NSharp" Version="4.1.0-beta0047" />
 		<PackageReference Include="Microsoft.ApplicationInsights.TraceListener" Version="2.10.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
 		<PackageReference Include="RestSharp" Version="106.11.7" />
+		<PackageReference Include="SIL.Core" Version="8.0.0-beta0239" />
+		<PackageReference Include="SIL.Core.Desktop" Version="8.0.0-beta0239" />
 		<PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
 		<PackageReference Include="System.ValueTuple" Version="4.5.0" />
 	</ItemGroup>
@@ -43,17 +46,8 @@
 			  <SpecificVersion>false</SpecificVersion>
 			</Reference>
 		-->
-		<Reference Include="L10NSharp">
-			<HintPath>..\..\lib\dotnet\L10NSharp.dll</HintPath>
-		</Reference>
 		<!-- Microsoft.CSharp needed for some operations on dynamic objects. -->
 		<Reference Include="Microsoft.CSharp" />
-		<Reference Include="SIL.Core">
-			<HintPath>..\..\lib\dotnet\SIL.Core.dll</HintPath>
-		</Reference>
-		<Reference Include="SIL.Core.Desktop">
-			<HintPath>..\..\lib\dotnet\SIL.Core.Desktop.dll</HintPath>
-		</Reference>
 		<Reference Include="System.Web" />
 		<Reference Include="System.Windows.Forms" />
 	</ItemGroup>
