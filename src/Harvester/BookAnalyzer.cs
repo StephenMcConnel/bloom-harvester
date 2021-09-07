@@ -59,6 +59,8 @@ namespace BloomHarvester
 				this.Branding = "Default";
 			}
 
+			var bookshelf = GetBookshelfIfPossible(_dom, metaObj);
+
 			var signLanguageCode = GetSignLanguageCode(metaObj);
 
 			string pageNumberStyle = null;
@@ -84,6 +86,7 @@ namespace BloomHarvester
 					new XElement("Language3Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language3Code))),
 					new XElement("XMatterPack", new XText(GetBestXMatter())),
 					new XElement("BrandingProjectName", new XText(Branding ?? "")),
+					new XElement("DefaultBookTags", new XText(bookshelf)),
 					new XElement("PageNumberStyle", new XText(pageNumberStyle ?? "")),
 					new XElement("IsLanguage1Rtl"), new XText(isRtl.ToString().ToLowerInvariant())
 					);
@@ -91,6 +94,26 @@ namespace BloomHarvester
 			using (var writer = XmlWriter.Create(sb))
 				bloomCollectionElement.WriteTo(writer);
 			BloomCollection = sb.ToString();
+		}
+
+		private string GetBookshelfIfPossible(HtmlDom dom, dynamic metaObj)
+		{
+			if (dom.Body.HasAttribute("data-bookshelfurlkey"))
+			{
+				var shelf = dom.Body.GetAttribute("data-bookshelfurlkey");
+				if (!String.IsNullOrEmpty(shelf))
+					return "bookshelf:" + shelf;
+			}
+			if (metaObj.IsDefined("tags"))
+			{
+				string[] tags = metaObj["tags"];
+				foreach (var tag in tags)
+				{
+					if (tag.StartsWith("bookshelf:"))
+						return tag;
+				}
+			}
+			return String.Empty;
 		}
 
 		// The only trace in the book that it belongs to a collection with a sign language is that
@@ -210,8 +233,12 @@ namespace BloomHarvester
 		public static BookAnalyzer FromFolder(string bookFolder)
 		{
 			var filename = Path.GetFileName(bookFolder);
-			var bookPath = Bloom.Book.BookStorage.FindBookHtmlInFolder(bookFolder);						 
+			var bookPath = Bloom.Book.BookStorage.FindBookHtmlInFolder(bookFolder);
+			if (!File.Exists(bookPath))
+				throw new Exception("Incomplete upload: missing book's HTML file");
 			var metaPath = Path.Combine(bookFolder, "meta.json");
+			if (!File.Exists(metaPath))
+				throw new Exception("Incomplete upload: missing book's meta.json file");
 			return new BookAnalyzer(File.ReadAllText(bookPath, Encoding.UTF8),
 				File.ReadAllText(metaPath, Encoding.UTF8), bookFolder);
 		}
