@@ -519,6 +519,7 @@ namespace BloomHarvester
 		{
 			using (var image = (Image<Rgba32>)Image.Load(path))
 			{
+				SanitizeImage(image);
 				// check whether we have R=G=B=0 (ie, black) for all pixels, presumably with A varying.
 				var allBlack = true;
 				for (int x = 0; allBlack && x < image.Width; ++x)
@@ -548,6 +549,25 @@ namespace BloomHarvester
 				}
 				var hashAlgorithm = new PerceptualHash();
 				return hashAlgorithm.Hash(image);
+			}
+		}
+
+		private static void SanitizeImage(Image<Rgba32> image)
+		{
+			// Corrupt Exif Metadata Orientation values can crash the phash implementation.
+			// See https://issues.bloomlibrary.org/youtrack/issue/BH-5984 and other issues.
+			if (image.Metadata != null && image.Metadata.ExifProfile != null &&
+				image.Metadata.ExifProfile.TryGetValue(SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag.Orientation, out var orientObj))
+			{
+				// An exception is thrown if the orientation value is greater than 65545 (0xFFFF).
+				var orient = (uint)orientObj.Value;
+				if (orient > 0xFFFF)
+				{
+					// Valid values of Exif Orientation are 1-9 according to https://jdhao.github.io/2019/07/31/image_rotation_exif_info/.
+					orient = Math.Max(orient, 1);
+					orient = Math.Min(orient, 9);
+					image.Metadata.ExifProfile.SetValue(SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag.Orientation, orient);
+				}
 			}
 		}
 
