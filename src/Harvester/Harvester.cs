@@ -1338,7 +1338,7 @@ namespace BloomHarvester
 		{
 			// Note: This has the same problems as the next method for running multiple instances of
 			// Harvester at the same time on the same computer.
-			return Path.Combine(Path.GetTempPath(), "BloomHarvester", "Collection", this.Identifier);
+			return Path.Combine(Path.GetTempPath(), "BloomHarvester", "Collection", _parseDBEnvironment.ToString());
 		}
 
 		internal string GetBookCacheFolder()
@@ -1347,7 +1347,7 @@ namespace BloomHarvester
 			//       and they both process the same book, they will attempt to download to the same path, which will probably be bad.
 			//       But for now, the benefit of having each run download into a predictable location (allows caching when enabled)
 			//       seems to outweigh the cost (since we don't normally run multiple instances w/the same env on same machine)
-			return Path.Combine(GetRootPath(), "BloomHarvester", this.Identifier);
+			return Path.Combine(GetRootPath(), "BloomHarvester", _parseDBEnvironment.ToString());
 		}
 
 		internal string GetBloomDigitalArtifactsPath()
