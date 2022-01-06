@@ -1204,7 +1204,7 @@ namespace BloomHarvester
 					// trick to disambiguate two HTML files in the folder by comparing the filename to the
 					// parent directory name.  (Having two HTML files in the uploaded book was one source
 					// of multiple Harvester errors.)
-					var bookTitleFileBasename = Bloom.Book.BookStorage.SanitizeNameForFileSystem(components.BookTitle);
+					var bookTitleFileBasename = components.BookTitle;	// derived from BaseUrl, does not need any sanitizing (BL-10406)
 					var baseForUnzipped = Path.Combine(folderForUnzipped.FolderPath, bookTitleFileBasename);
 
 					string zippedBloomDOutputPath = Path.Combine(folderForZipped.FolderPath, $"{bookTitleFileBasename}.bloomd");
