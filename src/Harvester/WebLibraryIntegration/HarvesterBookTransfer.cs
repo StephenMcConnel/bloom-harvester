@@ -21,8 +21,17 @@ namespace BloomHarvester.WebLibraryIntegration
 
 		public new string HandleDownloadWithoutProgress(string url, string destRoot)
 		{
-			// Just need to declare this as public instead of internal (interfaces...)
-			return base.HandleDownloadWithoutProgress(url, destRoot);
+			try
+			{
+				// Just need to declare this as public instead of internal (interfaces...)
+				return base.HandleDownloadWithoutProgress(url, destRoot);
+			}
+			catch (System.IO.FileNotFoundException e)
+			{
+				// We've seen this exception thrown for the meta.json file.  This may communicate better
+				// than just "System.IO.FileNotFoundException: Could not find file ...".
+				throw new System.Exception($"Incomplete upload: missing {e.FileName}", e);
+			}
 		}
 	}
 }
