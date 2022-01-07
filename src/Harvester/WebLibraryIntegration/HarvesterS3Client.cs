@@ -17,6 +17,7 @@ namespace BloomHarvester.WebLibraryIntegration
 		void UploadDirectory(string directoryToUpload, string uploadFolderKey);
 		void DeleteDirectory(string folderKey);
 		string GetFileWithExtension(string bookFolder, string extension, string idealBaseName = "");
+		bool DoesFileExist(string fileName);
 	}
 
 	public class HarvesterS3Client : BloomS3Client, IS3Client
@@ -197,6 +198,13 @@ namespace BloomHarvester.WebLibraryIntegration
 			}
 
 			return null;
-  	}
+		}
+
+		public bool DoesFileExist(string fileName)
+		{
+			var s3 = GetAmazonS3(_bucketName);
+			Amazon.S3.IO.S3FileInfo s3FileInfo = new Amazon.S3.IO.S3FileInfo(s3, _bucketName, fileName);
+			return s3FileInfo.Exists;
+		}
 	}
 }

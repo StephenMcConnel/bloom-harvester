@@ -14,6 +14,7 @@ using BloomHarvester.Parse;
 using BloomHarvester.Parse.Model;
 using BloomHarvester.WebLibraryIntegration;
 using BloomTemp;
+using Newtonsoft.Json;
 using SIL.IO;
 
 
@@ -904,7 +905,26 @@ namespace BloomHarvester
 				book.SetHarvesterEvaluation("bloomSource", isSuccessful);
 			}
 
-			// harvester never makes pdfs at the moment.
+			// harvester never makes pdfs at the moment, but it now checks for the existence of the pdf file.
+			var decodedUrl = HttpUtility.UrlDecode(book.Model.BaseUrl);
+			var downloadBucket = GetS3BucketNames(_parseDBEnvironment).ToTuple().Item1;
+			var downloadHeading = $"{HarvesterS3Client.GetBloomS3UrlPrefix()}{downloadBucket}/";
+			var downloadFolder = decodedUrl.Replace(downloadHeading,"").TrimEnd(new[] {' ', '\t', '/', '\\' });
+			var bookFileName = Path.GetFileName(downloadFolder);
+			if (book.Model != null && !_bloomS3Client.DoesFileExist($"{downloadFolder}/{bookFileName}.pdf"))
+			{
+				Debug.WriteLine($"DEBUG: {downloadFolder}/{bookFileName}.pdf does not exist");
+				if (book.Model.Show == null)
+					book.Model.Show = JsonConvert.DeserializeObject($"{{ \"pdf\": {{ \"exists\": false }} }}");
+				else if (book.Model.Show.pdf == null)
+					book.Model.Show.pdf = JsonConvert.DeserializeObject($"{{ \"exists\": false }}");
+				else
+					book.Model.Show.pdf.exists = false;
+			}
+			else
+			{
+				Debug.WriteLine($"DEBUG: {downloadFolder}/{bookFileName}.pdf exists");
+			}
 		}
 
 		private bool ShouldProcessBook(BookModel book, out string reason)
@@ -1184,7 +1204,7 @@ namespace BloomHarvester
 					// trick to disambiguate two HTML files in the folder by comparing the filename to the
 					// parent directory name.  (Having two HTML files in the uploaded book was one source
 					// of multiple Harvester errors.)
-					var bookTitleFileBasename = Bloom.Book.BookStorage.SanitizeNameForFileSystem(components.BookTitle);
+					var bookTitleFileBasename = components.BookTitle;	// derived from BaseUrl, does not need any sanitizing (BL-10406)
 					var baseForUnzipped = Path.Combine(folderForUnzipped.FolderPath, bookTitleFileBasename);
 
 					string zippedBloomDOutputPath = Path.Combine(folderForZipped.FolderPath, $"{bookTitleFileBasename}.bloomd");
