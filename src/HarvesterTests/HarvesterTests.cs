@@ -15,6 +15,7 @@ using NSubstitute;
 using NSubstitute.Extensions;
 using NUnit.Framework;
 using Newtonsoft.Json.Linq;
+using System.Web;
 
 namespace BloomHarvesterTests
 {
@@ -451,14 +452,13 @@ namespace BloomHarvesterTests
 		/// This needs to run after the harvester is initialized (because it calls an instance method).  The
 		/// pathname includes both a harvester generated string and a sanitized form of the book's title.
 		/// </summary>
-		private void ConfigureForFakeIndexHtmFile(Harvester harvester, string title)
+		private string ConfigureForFakeIndexHtmFile(Harvester harvester, string baseUrl)
 		{
-			//
-			// It may be pretty commonplace that most unit tests would prefer for this check not to happen, so we'll
-			// take care of it here for all unit tests by default
-			var saneTitle = Bloom.Book.BookStorage.SanitizeNameForFileSystem(title);
+			var decodedUrl = HttpUtility.UrlDecode(baseUrl);
+			var saneTitle = Path.GetFileName(decodedUrl.TrimEnd(new[]{' ','\t','/'}));
 			var indexPath = Path.Combine(Path.GetTempPath(), harvester.GetBloomDigitalArtifactsPath(), saneTitle, "index.htm");
 			_fakeFileIO.Configure().Exists(indexPath).Returns(true);
+			return saneTitle;
 		}
 
 		[Test]
@@ -481,7 +481,7 @@ namespace BloomHarvesterTests
 				book.SetHarvesterEvaluation("epub", true);
 				book.SetHarvesterEvaluation("bloomReader", true);
 				book.SetHarvesterEvaluation("readOnline", true);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test				
@@ -515,7 +515,7 @@ namespace BloomHarvesterTests
 			{
 				// Test Setup
 				var book = BookTests.CreateDefaultBook();
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test				
@@ -555,7 +555,7 @@ namespace BloomHarvesterTests
 				// Test Setup
 				var book = BookTests.CreateDefaultBook();
 				book.Model.HarvestState = initialState.ToString();
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test				
@@ -591,7 +591,7 @@ namespace BloomHarvesterTests
 			{
 				// Test Setup
 				var book = BookTests.CreateDefaultBook();
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test				
@@ -631,7 +631,7 @@ namespace BloomHarvesterTests
 			{
 				// Test Setup
 				var book = BookTests.CreateDefaultBook();
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test				
@@ -675,7 +675,7 @@ namespace BloomHarvesterTests
 			{
 				// Test Setup
 				var book = BookTests.CreateDefaultBook(fakeFileIO);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				string thumbInfoPath = Path.Combine(Path.GetTempPath(), $"BHStaging-{harvester.GetUniqueIdentifier()}", "thumbInfo.txt");
@@ -749,10 +749,10 @@ namespace BloomHarvesterTests
 			using (var harvester = GetSubstituteHarvester(options))
 			{
 				var book = BookTests.CreateDefaultBook();
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				var saneTitle = ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 				// Harvester now checks that the epub file exists before trying to upload it.  So fake it.
-				var epubPath = Path.Combine(Path.GetTempPath(), $"BHStaging-{harvester.GetUniqueIdentifier()}", $"{book.Model.Title}.epub");
+				var epubPath = Path.Combine(Path.GetTempPath(), $"BHStaging-{harvester.GetUniqueIdentifier()}", $"{saneTitle}.epub");
 				_fakeFileIO.Configure().Exists(epubPath).Returns(true);
 
 				// System under test				
@@ -783,7 +783,7 @@ namespace BloomHarvesterTests
 			using (var harvester = GetSubstituteHarvester(options))
 			{
 				var book = BookTests.CreateDefaultBook();
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test				
@@ -814,7 +814,7 @@ namespace BloomHarvesterTests
 				string baseUrl = "https://s3.amazonaws.com/FakeBucket/fakeUploader%40gmail.com%2fFakeGuid%2fFakeTitle%2f";
 				var bookModel = new BookModel(baseUrl: baseUrl, title: "FakeTitle") {ObjectId = "123456789"};
 				var book = new Book(bookModel, logger, _fakeFileIO);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				// System under test
@@ -858,7 +858,7 @@ namespace BloomHarvesterTests
 				string baseUrl = "https://s3.amazonaws.com/FakeBucket/fakeUploader%40gmail.com%2fFakeGuid%2fFakeTitle%2f";
 				var bookModel = new BookModel(baseUrl: baseUrl, title: "FakeTitle") {ObjectId = "123456789"};
 				var book = new Book(bookModel, logger, _fakeFileIO);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 
 				// System under test
 				harvester.ProcessOneBook(book);
@@ -896,7 +896,7 @@ namespace BloomHarvesterTests
 			{
 				// Book Setup
 				var book = CreateBookForCheckDownloadTests(lastUploadedDateStr, lastHarvestedDateStr, titleSuffix, objectId);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 
 				// Need to make sure it's not there
 				CleanupForBookDownloadTests(harvester, objectId);
@@ -929,7 +929,7 @@ namespace BloomHarvesterTests
 			{
 				// Book Setup
 				var book = CreateBookForCheckDownloadTests(lastUploadedDateStr, lastHarvestedDateStr, titleSuffix, objectId);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 
 				// Create a fake book at the location
 				SetupForBookDownloadTests(harvester, objectId);
@@ -963,7 +963,7 @@ namespace BloomHarvesterTests
 				// Book Setup
 				var book = CreateBookForCheckDownloadTests(lastUploadedDateStr, lastHarvestedDateStr, titleSuffix, objectId);
 				SetupForBookDownloadTests(harvester, objectId);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(objectId, harvester);
 
 				// System under test				
@@ -993,7 +993,7 @@ namespace BloomHarvesterTests
 				// Book Setup
 				var book = CreateBookForCheckDownloadTests(lastUploadedDateStr, lastHarvestedDateStr, titleSuffix, objectId);
 				SetupForBookDownloadTests(harvester, objectId);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(objectId, harvester);
 
 				// System under test				
@@ -1025,7 +1025,7 @@ namespace BloomHarvesterTests
 				// Book Setup
 				var book = CreateBookForCheckDownloadTests(lastUploadedDateStr, lastHarvestedDateStr, titleSuffix, objectId);
 				SetupForBookDownloadTests(harvester, objectId);
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(objectId, harvester);
 
 				// System under test				
@@ -1092,7 +1092,7 @@ namespace BloomHarvesterTests
 				if (!String.IsNullOrEmpty(showStringInitialJson))
 					book.Model.Show = JObject.Parse(showStringInitialJson);
 
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				string thumbInfoPath = Path.Combine(Path.GetTempPath(), $"BHStaging-{harvester.GetUniqueIdentifier()}", "thumbInfo.txt");
@@ -1149,7 +1149,7 @@ namespace BloomHarvesterTests
 				if (!String.IsNullOrEmpty(showStringInitialJson))
 					book.Model.Show = JObject.Parse(showStringInitialJson);
 
-				ConfigureForFakeIndexHtmFile(harvester, book.Model.Title);
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
 				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
 
 				string thumbInfoPath = Path.Combine(Path.GetTempPath(), $"BHStaging-{harvester.GetUniqueIdentifier()}", "thumbInfo.txt");
