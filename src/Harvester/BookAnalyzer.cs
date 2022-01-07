@@ -559,9 +559,37 @@ namespace BloomHarvester
 			if (image.Metadata != null && image.Metadata.ExifProfile != null &&
 				image.Metadata.ExifProfile.TryGetValue(SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag.Orientation, out var orientObj))
 			{
+				uint orient = 0;
+				// Simply casting orientObj.Value to (uint) throws an exception if the underlying object is actually a ushort.
+				// See https://issues.bloomlibrary.org/youtrack/issue/BH-6025.
+				switch (orientObj.DataType)
+				{
+					case SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifDataType.Byte:
+						var orientByte = (byte)orientObj.Value;
+						orient = orientByte;
+						break;
+					case SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifDataType.Long:
+						orient = (uint)orientObj.Value;
+						break;
+					case SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifDataType.Short:
+						var orientUShort = (ushort)orientObj.Value;
+						orient = orientUShort;
+						break;
+					case SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifDataType.SignedLong:
+						var orientInt = (int)orientObj.Value;
+						orient = (uint)orientInt;
+						break;
+					case SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifDataType.SignedShort:
+						var orientShort = (short)orientObj.Value;
+						orient = (uint)orientShort;
+						break;
+					default:
+						// No idea of how to handle the rest of the cases, and most unlikely to be used.
+						return;
+				}
 				// An exception is thrown if the orientation value is greater than 65545 (0xFFFF).
-				var orient = (uint)orientObj.Value;
-				if (orient > 0xFFFF)
+				// But we may as well ensure a valid value while we're at at.
+				if (orient == 0 || orient > 0x9)
 				{
 					// Valid values of Exif Orientation are 1-9 according to https://jdhao.github.io/2019/07/31/image_rotation_exif_info/.
 					orient = Math.Max(orient, 1);
