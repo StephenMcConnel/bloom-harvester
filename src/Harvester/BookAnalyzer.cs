@@ -107,6 +107,8 @@ namespace BloomHarvester
 			if (metaObj.IsDefined("tags"))
 			{
 				string[] tags = metaObj["tags"];
+				if (tags == null)
+					return String.Empty;
 				foreach (var tag in tags)
 				{
 					if (tag.StartsWith("bookshelf:"))
