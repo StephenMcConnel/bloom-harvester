@@ -656,6 +656,8 @@ namespace BloomHarvester
 
 				// Write the updates
 				_currentBookId = null;
+				if (!_options.ReadOnly)
+					book.Model.UpdateBookshelfTag(book.Analyzer.GetBookshelf());
 				book.Model.FlushUpdateToDatabase(_parseClient, _options.ReadOnly);
 				_logger.TrackEvent("ProcessOneBook End - " + (isSuccessful ? "Success" : "Error"));
 			}
