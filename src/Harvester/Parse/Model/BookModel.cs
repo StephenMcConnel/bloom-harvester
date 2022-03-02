@@ -255,6 +255,47 @@ namespace BloomHarvester.Parse.Model
 			return anchorReference;
 		}
 
+		/// <summary>
+		/// Update the Tags array if necessary for the bookshelfTag value, preserving at most one tag that
+		/// starts with "bookshelf:".  Remove any such tag if the bookshelfTag value is empty or null.
+		/// </summary>
+		internal void UpdateBookshelfTag(string bookshelfTag)
+		{
+			System.Diagnostics.Debug.Assert(String.IsNullOrEmpty(bookshelfTag) || bookshelfTag.StartsWith("bookshelf:"));
+			int countOfCurrentBookshelves = 0;
+			string currentBookshelf = String.Empty;
+			if (Tags == null || Tags.Length == 0)
+			{
+				if (!String.IsNullOrEmpty(bookshelfTag))
+					Tags = new string[] { bookshelfTag };
+			}
+			else
+			{
+				foreach (var tag in Tags)
+				{
+					if (tag.StartsWith("bookshelf:"))
+					{
+						++countOfCurrentBookshelves;
+						currentBookshelf = tag;
+					}
+				}
+				if (countOfCurrentBookshelves == 0 && String.IsNullOrEmpty(bookshelfTag))
+					return;
+				if (countOfCurrentBookshelves == 1 && bookshelfTag == currentBookshelf)
+					return;
+				var newTags = new List<string>();
+				foreach (var tag in Tags)
+				{
+					if (!tag.StartsWith("bookshelf:"))
+						newTags.Add(tag);
+				}
+				// Note that we need to be able to delete bookshelves as well as add or change them.
+				if (!String.IsNullOrEmpty(bookshelfTag))
+					newTags.Add(bookshelfTag);
+				Tags = newTags.ToArray();
+			}
+		}
+
 		#region Batch Parse Update code
 		// (This region of code is not in normal use as of 3-30-2020)
 		internal static UpdateOperation GetNewBookUpdateOperation()
