@@ -1254,7 +1254,21 @@ namespace BloomHarvester
 							success = false;
 							IEnumerable<string> errors = Bloom.CLI.CreateArtifactsCommand.GetErrorsFromExitCode(bloomExitCode) ?? Enumerable.Empty<string>();
 							string errorInfo = String.Join(", ", errors);
-							string errorMessage = $"Bloom Command Line error: CreateArtifacts failed with exit code: {bloomExitCode} ({errorInfo}).";
+							string errorMessage = null;
+							if (!String.IsNullOrEmpty(bloomStdOut) && !String.IsNullOrEmpty(bloomStdErr))
+							{
+								var match = System.Text.RegularExpressions.Regex.Match(bloomStdErr, "^Nonfatal problem: Cannot Find.*LocalPath was (.*)Nonfatal problem:");
+								if (match.Success && bloomStdOut.StartsWith("System.IO.FileNotFoundException:"))
+								{
+									var path = match.Groups[1].ToString();
+									var file = Path.GetFileName(path);
+									var directoryName = Path.GetDirectoryName(path);
+									var folder = Path.GetFileName(directoryName);
+									errorMessage = $"Incomplete upload: missing {Path.Combine(folder, file)}";
+								}
+							}
+							if (errorMessage == null)
+								errorMessage = $"Bloom Command Line error: CreateArtifacts failed with exit code: {bloomExitCode} ({errorInfo}).";
 							errorDescription += errorMessage;
 
 							harvestLogEntries.Add(new LogEntry(LogLevel.Error, LogType.BloomCLIError, errorMessage));
