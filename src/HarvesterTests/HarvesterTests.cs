@@ -431,11 +431,9 @@ namespace BloomHarvesterTests
 			if (fontChecker == null)
 			{
 				_fakeFontChecker = Substitute.For<IFontChecker>();
-				_fakeFontChecker.Configure().GetMissingFonts(default, out _).ReturnsForAnyArgs(args =>
-				{
-					args[1] = true;	// the success code
-					return new List<string>();	// return no missing fonts
-				});
+				_fakeFontChecker.Configure().CheckFonts(default).ReturnsForAnyArgs( true );		// return success
+				_fakeFontChecker.Configure().GetMissingFonts().Returns( new List<string>() );	// return no missing fonts
+				_fakeFontChecker.Configure().GetInvalidFonts().Returns( new List<string>() );	// return no invalid fonts
 			}
 			else
 				_fakeFontChecker = fontChecker;
@@ -576,16 +574,13 @@ namespace BloomHarvesterTests
 		}
 
 		[Test]
-		public void ProcessOneBook_GetMissingFontFails_MissingFontErrorRecorded()
+		public void ProcessOneBook_CheckFontsFails_GetFontsErrorRecorded()
 		{
 			var options = GetHarvesterOptionsForProcessOneBookTests();
 			var fakeFontChecker = Substitute.For<IFontChecker>();
-			fakeFontChecker.Configure().GetMissingFonts(default, out bool success)
-				.ReturnsForAnyArgs(args =>
-				{
-					args[1] = false; // Report failure
-					return new List<string>();
-				});
+			fakeFontChecker.Configure().CheckFonts(default).ReturnsForAnyArgs( false );		// report failure
+			fakeFontChecker.Configure().GetMissingFonts().Returns( new List<string>() );	// return no missing fonts
+			fakeFontChecker.Configure().GetInvalidFonts().Returns( new List<string>() );	// return no invalid fonts
 
 			using (var harvester = GetSubstituteHarvester(options, fontChecker: fakeFontChecker))
 			{
@@ -604,7 +599,9 @@ namespace BloomHarvesterTests
 				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
 
 				// Just double-check that our stub did actually get called
-				fakeFontChecker.ReceivedWithAnyArgs().GetMissingFonts(default, out _);
+				fakeFontChecker.ReceivedWithAnyArgs().CheckFonts(default);
+				fakeFontChecker.DidNotReceiveWithAnyArgs().GetMissingFonts();
+				fakeFontChecker.DidNotReceiveWithAnyArgs().GetInvalidFonts();
 
 				// Validate that the code did in fact attempt to report an error
 				_fakeIssueReporter.ReceivedWithAnyArgs().ReportError(default, default, default, default);
@@ -620,12 +617,9 @@ namespace BloomHarvesterTests
 			var missingFonts = new List<string>();
 			missingFonts.Add("madeUpFontName");
 			var fakeFontChecker = Substitute.For<IFontChecker>();
-			fakeFontChecker.Configure().GetMissingFonts(default, out bool success)
-				.ReturnsForAnyArgs(args =>
-					{
-						args[1] = true;	// Report success
-						return missingFonts;
-					});
+			fakeFontChecker.Configure().CheckFonts(default).ReturnsForAnyArgs( true );	// return success
+			fakeFontChecker.Configure().GetMissingFonts().Returns( missingFonts );
+			fakeFontChecker.Configure().GetInvalidFonts().Returns( new List<string>() );
 
 			using (var harvester = GetSubstituteHarvester(options, fontChecker: fakeFontChecker))
 			{
@@ -644,10 +638,52 @@ namespace BloomHarvesterTests
 				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
 
 				// Just double-check that our stub did actually get called
-				fakeFontChecker.ReceivedWithAnyArgs().GetMissingFonts(default, out _);
+				fakeFontChecker.ReceivedWithAnyArgs().CheckFonts(default);
+				fakeFontChecker.ReceivedWithAnyArgs().GetMissingFonts();
+				fakeFontChecker.ReceivedWithAnyArgs().GetInvalidFonts();
 
 				// Validate that the code did in fact attempt to report an error
 				_fakeIssueReporter.Received().ReportMissingFont("madeUpFontName", "UnitTestHarvester", book.Model);
+			}
+		}
+
+		[Test]
+		public void ProcessOneBook_InvalidFont_InvalidFontErrorRecorded()
+		{
+			var options = GetHarvesterOptionsForProcessOneBookTests();
+
+			// Stub setup
+			var invalidFonts = new List<string>();
+			invalidFonts.Add("madeUpFontName");
+			var fakeFontChecker = Substitute.For<IFontChecker>();
+			fakeFontChecker.Configure().CheckFonts(default).ReturnsForAnyArgs( true );	// return success
+			fakeFontChecker.Configure().GetMissingFonts().Returns( new List<string>() );
+			fakeFontChecker.Configure().GetInvalidFonts().Returns( invalidFonts );
+
+			using (var harvester = GetSubstituteHarvester(options, fontChecker: fakeFontChecker))
+			{
+				// Test Setup
+				var book = BookTests.CreateDefaultBook();
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
+				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
+
+				// System under test
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				var logEntries = book.Model.GetValidLogEntries();
+				var anyRelevantErrors = logEntries.Any(x => x.Type == LogType.InvalidFont && x.Level == LogLevel.Error);
+				Assert.That(anyRelevantErrors, Is.True, "The relevant error type was not found");
+				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
+
+				// Just double-check that our stub did actually get called
+				fakeFontChecker.ReceivedWithAnyArgs().CheckFonts(default);
+				fakeFontChecker.ReceivedWithAnyArgs().GetMissingFonts();
+				fakeFontChecker.ReceivedWithAnyArgs().GetInvalidFonts();
+
+				// Validate that the code did in fact attempt to report an error
+				_fakeIssueReporter.DidNotReceiveWithAnyArgs().ReportMissingFont(default, default, default);
+				_fakeIssueReporter.Received().ReportInvalidFont("madeUpFontName", "UnitTestHarvester", book.Model);
 			}
 		}
 
@@ -660,12 +696,10 @@ namespace BloomHarvesterTests
 			var missingFonts = new List<string>();
 			missingFonts.Add("madeUpFontName");
 			var fakeFontChecker = Substitute.For<IFontChecker>();
-			fakeFontChecker.Configure().GetMissingFonts(default, out bool success)
-				.ReturnsForAnyArgs(args =>
-				{
-					args[1] = true;	// Report success
-					return missingFonts;
-				});
+			fakeFontChecker.Configure().CheckFonts(default).ReturnsForAnyArgs( true );	// return success
+			fakeFontChecker.Configure().GetMissingFonts().Returns( missingFonts );
+			fakeFontChecker.Configure().GetInvalidFonts().Returns( new List<string>() );
+
 			var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
 			fakeAnalyzer.Configure().GetBestPHashImageSource().Returns("test.png");	// any filename is okay except placeholder.png
 			fakeAnalyzer.Configure().ComputeImageHash(default).ReturnsForAnyArgs(args => (ulong)0x123456789ABCDEF);
@@ -704,7 +738,9 @@ namespace BloomHarvesterTests
 				Assert.That(book.Model.HarvestState, Is.EqualTo("Failed"), "HarvestState should be failed");
 
 				// Just double-check that our font checker stub did actually get called
-				fakeFontChecker.ReceivedWithAnyArgs().GetMissingFonts(default, out _);
+				fakeFontChecker.ReceivedWithAnyArgs().CheckFonts(default);
+				fakeFontChecker.ReceivedWithAnyArgs().GetMissingFonts();
+				fakeFontChecker.ReceivedWithAnyArgs().GetInvalidFonts();
 
 				// Validate that the code did in fact attempt to report an error
 				_fakeIssueReporter.Received().ReportMissingFont("madeUpFontName", "UnitTestHarvester", book.Model);
@@ -729,7 +765,7 @@ namespace BloomHarvesterTests
 				_fakeParseClient.ReceivedWithAnyArgs(2).UpdateObject("books", "FakeObjectId", "...");
 
 				// This may be too fragile to keep.  It's a pity there isn't a way to get the arguments back to check inside them instead of only exact matching...
-				var updateJson = "{\"harvestState\":\"Failed\",\"harvestLog\":[\"Error: MissingFont - madeUpFontName\",\"Info: ArtifactSuitability - No ePUB/BloomPub because of missing font(s)\"],\"phashOfFirstContentImage\":\"0123456789ABCDEF\",\"show\":{\"social\":{\"harvester\":true},\"epub\":{\"harvester\":false},\"bloomReader\":{\"harvester\":false},\"readOnline\":{\"harvester\":false},\"bloomSource\":{\"harvester\":false},\"pdf\":{\"exists\":false}},\"updateSource\":\"bloomHarvester\"}";
+				var updateJson = "{\"harvestState\":\"Failed\",\"harvestLog\":[\"Error: MissingFont - madeUpFontName\",\"Info: ArtifactSuitability - No ePUB/BloomPub because of missing or invalid font(s)\"],\"phashOfFirstContentImage\":\"0123456789ABCDEF\",\"show\":{\"social\":{\"harvester\":true},\"epub\":{\"harvester\":false},\"bloomReader\":{\"harvester\":false},\"readOnline\":{\"harvester\":false},\"bloomSource\":{\"harvester\":false},\"pdf\":{\"exists\":false}},\"updateSource\":\"bloomHarvester\"}";
 				_fakeParseClient.Received(1).UpdateObject("books", "FakeObjectId", updateJson);
 			}
 		}
