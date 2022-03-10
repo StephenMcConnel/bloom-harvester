@@ -25,6 +25,7 @@ namespace BloomHarvester
 		bool IsEpubSuitable(List<LogEntry> harvestLogEntries);
 
 		int GetBookComputedLevel();
+		bool BookHasCustomLicense { get; }
 
 		string GetBestPHashImageSource();
 		ulong ComputeImageHash(string path);
@@ -97,6 +98,12 @@ namespace BloomHarvester
 			using (var writer = XmlWriter.Create(sb))
 				bloomCollectionElement.WriteTo(writer);
 			BloomCollection = sb.ToString();
+
+			if (metaObj.IsDefined("license"))
+			{
+				var license = metaObj["license"] as string;
+				BookHasCustomLicense = license == "custom";
+			}
 		}
 
 		private string GetBookshelfIfPossible(HtmlDom dom, dynamic metaObj)
@@ -270,6 +277,8 @@ namespace BloomHarvester
 		/// The content appropriate to a skeleton BookCollection file for this book.
 		/// </summary>
 		public string BloomCollection { get; set; }
+
+		public bool BookHasCustomLicense { get; private set; }
 
 		/// <summary>
 		/// For now, we assume that generated Bloom Reader books are always suitable.

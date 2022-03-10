@@ -223,6 +223,12 @@ namespace BloomHarvester
 					else
 						Model.Show.social.harvester = enabled;
 					break;
+				case "shellbook":
+					if (Model.Show.shellbook == null)
+						Model.Show.shellbook = setting;
+					else
+						Model.Show.shellbook.harvester = enabled;
+					break;
 				default:
 					throw new ArgumentException($"SetHarvesterEvaluation(): Unrecognized artifact type \"{artifact}\"");
 			}
