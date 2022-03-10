@@ -927,6 +927,9 @@ namespace BloomHarvester
 			{
 				Debug.WriteLine($"DEBUG: {downloadFolder}/{bookFileName}.pdf exists");
 			}
+
+			// harvester checks the license to evaluate "shellbook", ignoring any success in generating artifacts
+			book.SetHarvesterEvaluation("shellbook", !analyzer.BookHasCustomLicense);
 		}
 
 		private bool ShouldProcessBook(BookModel book, out string reason)
