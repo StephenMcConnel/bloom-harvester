@@ -688,6 +688,7 @@ namespace BloomHarvester
 				// Attempt to write to Parse that processing failed
 				if (!String.IsNullOrEmpty(book.Model?.ObjectId) && !skipBugReport)
 				{
+					var logEntries = new List<LogEntry>();
 					try
 					{
 						SetFailedState(book);
@@ -696,20 +697,19 @@ namespace BloomHarvester
 						{
 							book.Model.HarvestLogEntries = new List<string>();
 						}
-						var logEntries = new List<LogEntry>();
 						logEntries.Add(new LogEntry(LogLevel.Error, LogType.ProcessBookError, errorMessage));
 
 						// These options need to be restored before calling UpdateSuitabilityOfArtifacts
 						_options.SkipUploadBloomDigitalArtifacts = skipUploadBloomDigitalArtifacts;
 						_options.SkipUploadEPub = skipUploadEPub;
 						UpdateSuitabilityOfArtifacts(book, null, false, false, logEntries);
-						book.Model.HarvestLogEntries.AddRange(logEntries.Select(x => x.ToString()).ToList());
 						book.Model.FlushUpdateToDatabase(_parseClient);
 					}
 					catch (Exception)
 					{
 						// If it fails, just let it be and report the first exception rather than the nested exception.
 					}
+					book.Model.HarvestLogEntries.AddRange(logEntries.Select(x => x.ToString()).ToList());
 				}
 			}
 			finally
