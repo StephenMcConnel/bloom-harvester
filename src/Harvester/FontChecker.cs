@@ -9,7 +9,10 @@ namespace BloomHarvester
 {
 	interface IFontChecker
 	{
-		List<string> GetMissingFonts(string bookPath, out bool success);
+		bool CheckFonts(string bookPath);
+		// These must be called after CheckFonts();
+		List<string> GetMissingFonts();
+		List<string> GetInvalidFonts();
 	}
 
 	internal class FontChecker : IFontChecker
@@ -17,6 +20,8 @@ namespace BloomHarvester
 		private readonly int _kGetFontsTimeoutSecs;
 		private IBloomCliInvoker _bloomCli;
 		private IMonitorLogger _logger;
+		private List<string> _missingFonts;
+		private List<string> _invalidFonts;
 
 		public FontChecker(int getFontsTimeoutSecs, IBloomCliInvoker bloomCli, IMonitorLogger logger)
 		{
@@ -26,14 +31,15 @@ namespace BloomHarvester
 		}
 
 		/// <summary>
-		/// Gets the names of the fonts referenced in the book but not found on this machine.
+		/// Retrieve the names of the fonts referenced in the book and check for missing or invalid fonts.
 		/// </summary>
 		/// <param name="bookPath">The path to the book folder</param>
-		/// Returns a list of the fonts that the book reference but which are not installed, or null if there was an error
-		public List<string> GetMissingFonts(string bookPath, out bool success)
+		/// <returns>
+		/// true if data has been collected successfully, false if an error occurred.
+		/// Note that this method can return true even if fonts are missing or invalid.
+		/// </returns>
+		public bool CheckFonts(string bookPath)
 		{
-			var missingFonts = new List<string>();
-
 			using (var reportFile = SIL.IO.TempFile.CreateAndGetPathButDontMakeTheFile())
 			{
 				string bloomArguments = $"getfonts --bookpath \"{bookPath}\" --reportpath \"{reportFile.Path}\"";
@@ -45,16 +51,44 @@ namespace BloomHarvester
 					_logger.LogVerbose("Standard output:\n" + stdOut);
 					_logger.LogVerbose("Standard error:\n" + stdError);
 
-					success = false;
-					return missingFonts;
+					_missingFonts = new List<string>();
+					_invalidFonts = new List<string>();
+					return false;
 				}
-
 				var bookFontNames = GetFontsFromReportFile(reportFile.Path);
-				missingFonts = GetMissingFonts(bookFontNames);
+				_missingFonts = GetMissingFonts(bookFontNames);
+				_invalidFonts = GetInvalidFonts(bookFontNames);
 			}
+			return true;
+		}
 
-			success = true;
-			return missingFonts;
+		public List<string> GetMissingFonts()
+		{
+			return _missingFonts;
+		}
+
+		public List<string> GetInvalidFonts()
+		{
+			return _invalidFonts;
+		}
+
+		internal static List<string> GetInvalidFonts(List<string> bookFontNames)
+		{
+			var invalidFonts = new List<string>();
+			foreach (var font in bookFontNames)
+			{
+				var fontFileFinder = Bloom.FontProcessing.FontFileFinder.GetInstance(false);
+				var fontFiles = fontFileFinder.GetFilesForFont(font);
+				foreach (var file in fontFiles)
+				{
+					if (!Bloom.FontProcessing.FontMetadata.fontFileTypesBloomKnows.Contains(Path.GetExtension(file).ToLowerInvariant()))
+					{
+						invalidFonts.Add(font);
+						break;
+					}
+				}
+			}
+			return invalidFonts;
 		}
 
 		internal static List<string> GetMissingFonts(IEnumerable<string> bookFontNames)
