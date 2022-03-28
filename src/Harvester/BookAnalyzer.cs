@@ -208,9 +208,21 @@ namespace BloomHarvester
 				default:
 					throw new ArgumentOutOfRangeException(nameof(languageNumber), "Must be 1, 2, or 3");
 			}
-			// We make the assumption that the bookTitle is always present and always has any relevant language
-			string xpathString = $"//div[contains(@class, '{classToLookFor}') and @data-book='bookTitle' and @lang]";
-			return _dom.SelectSingleNode(xpathString)?.Attributes["lang"]?.Value;
+			// We assume that the bookTitle is always present and may have the relevant language
+			var xpathString = $"//div[contains(@class, '{classToLookFor}') and @data-book='bookTitle' and @lang]";
+			var lang = _dom.SelectSingleNode(xpathString)?.Attributes["lang"]?.Value;
+			if (!String.IsNullOrEmpty(lang))
+				return lang;
+			// Look for a visible div/p that has text in the designated national language.
+			// (This fixes https://issues.bloomlibrary.org/youtrack/issue/BL-11050.)
+			xpathString = $"//div[contains(@class,'bloom-visibility-code-on') and contains(@class,'{classToLookFor}') and @lang]/p[normalize-space(text())!='']";
+			var para = _dom.SelectSingleNode(xpathString);
+			if (para != null)
+			{
+				var div = para.ParentNode;
+				lang = div.Attributes["lang"].Value;
+			}
+			return lang;
 		}
 
 		/// <summary>
