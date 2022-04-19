@@ -30,7 +30,7 @@
 		<PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="5.0.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
 		<PackageReference Include="RestSharp" Version="106.12.0" />
-		<PackageReference Include="SIL.Core" Version="9.0.0-beta0072" />
+		<PackageReference Include="SIL.Core" Version="9.0.0-beta0154" />
 		<!-- Without the explicit reference to System.Runtime.CompilerServices.Unsafe, something (mscorlib?) was pulling in -->
 		<!-- version 4.5 after our PreBuild copy and that was causing runtime errors -->
 		<PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="5.0.0" />
