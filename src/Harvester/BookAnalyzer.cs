@@ -14,6 +14,7 @@ using CoenM.ImageHash.HashAlgorithms;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SIL.Xml;
+using SIL.IO;
 
 namespace BloomHarvester
 {
@@ -301,11 +302,28 @@ namespace BloomHarvester
 		}
 
 		/// <summary>
-		/// Our simplistic check for ePUB suitability is that all of the content pages
-		/// have 0 or 1 each of images, text boxes, and/or videos
+		/// Our simple (simplistic?) check for ePUB suitability:
+		/// 1) the publishing mode set by the author is "fixed"
+		///   OR
+		/// 2) all of the content pages have 0 or 1 each of images, text boxes, and/or videos
 		/// </summary>
 		public bool IsEpubSuitable(List<LogEntry> harvestLogEntries)
 		{
+			var settingsPath = Path.Combine(_bookDirectory,"publish-settings.json");
+			if (RobustFile.Exists(settingsPath))
+			{
+				try
+				{
+					var settingsRawText = RobustFile.ReadAllText(settingsPath);
+					var settings = DynamicJson.Parse(settingsRawText, Encoding.UTF8);
+					if (settings?.epub?.mode == "fixed")
+						return true;
+				}
+				catch
+				{
+					// Ignore exceptions reading or parsing the publish-settings.json file.
+				}
+			}
 			int goodPages = 0;
 			foreach (var div in GetNumberedPages().ToList())
 			{
