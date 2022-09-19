@@ -38,9 +38,9 @@ namespace BloomHarvester
 	/// </summary>
 	class BookAnalyzer : IBookAnalyzer
 	{
-		private HtmlDom _dom;
-		private string _bookDirectory;
-		private string _bookshelf;
+		private readonly HtmlDom _dom;
+		private readonly string _bookDirectory;
+		private readonly string _bookshelf;
 
 		public BookAnalyzer(string html, string meta, string bookDirectory = "")
 		{
@@ -53,14 +53,14 @@ namespace BloomHarvester
 			var metaObj = DynamicJson.Parse(meta);
 			if (metaObj.IsDefined("brandingProjectName"))
 			{
-				this.Branding = metaObj.brandingProjectName;
+				Branding = metaObj.brandingProjectName;
 			}
 			else
 			{
 				// If we don't set this default value, then the epub will not build successfully. (The same is probably true for the
 				// bloompub file.)  We get a "Failure to completely load visibility document in RemoveUnwantedContent" exception thrown.
 				// See https://issues.bloomlibrary.org/youtrack/issue/BL-8485.
-				this.Branding = "Default";
+				Branding = "Default";
 			}
 
 			_bookshelf = GetBookshelfIfPossible(_dom, metaObj);
@@ -261,8 +261,7 @@ namespace BloomHarvester
 
 		public static BookAnalyzer FromFolder(string bookFolder)
 		{
-			var filename = Path.GetFileName(bookFolder);
-			var bookPath = Bloom.Book.BookStorage.FindBookHtmlInFolder(bookFolder);
+			var bookPath = BookStorage.FindBookHtmlInFolder(bookFolder);
 			if (!File.Exists(bookPath))
 				throw new Exception("Incomplete upload: missing book's HTML file");
 			var metaPath = Path.Combine(bookFolder, "meta.json");
@@ -470,9 +469,12 @@ namespace BloomHarvester
 
 		private IEnumerable<XmlElement> GetNumberedPages() => _dom.SafeSelectNodes("//div[contains(concat(' ', @class, ' '),' numberedPage ')]").Cast<XmlElement>();
 
+		/// <remarks>This xpath assumes it is rooted at the level of the marginBox's parent (the page).</remarks>
 		private static string GetTranslationGroupsXpath(bool includeImageDescriptions)
 		{
 			string imageDescFilter = includeImageDescriptions ? "" : " and not(contains(@class,'bloom-imageDescription'))";
+			// We no longer (or ever did?) use box-header-off for anything, but some older books have it.
+			// For our purposes (and really all purposes throughout the system), we don't want them to include them.
 			string xPath = $"div[contains(@class,'marginBox')]//div[contains(@class,'bloom-translationGroup') and not(contains(@class, 'box-header-off')){imageDescFilter}]";
 			return xPath;
 		}
@@ -493,10 +495,10 @@ namespace BloomHarvester
 		/// <param name="lang">Only bloom-editables matching this ISO language code will be returned</param>
 		private static IEnumerable<XmlElement> GetEditablesFromPage(XmlElement pageElement, string lang, bool includeImageDescriptions = true, bool includeTextOverPicture = true)
 		{
-			string translationGroup = GetTranslationGroupsXpath(includeImageDescriptions);
-			string langFilter = Bloom.Book.HtmlDom.IsLanguageValid(lang) ? $"[@lang='{lang}']" : "";
+			string translationGroupXPath = GetTranslationGroupsXpath(includeImageDescriptions);
+			string langFilter = HtmlDom.IsLanguageValid(lang) ? $"[@lang='{lang}']" : "";
 
-			string xPath = $"{translationGroup}//div[contains(@class,'bloom-editable')]{langFilter}";
+			string xPath = $"{translationGroupXPath}//div[contains(@class,'bloom-editable')]{langFilter}";
 			var editables = pageElement.SafeSelectNodes(xPath).Cast<XmlElement>();
 
 			foreach (var editable in editables)
@@ -590,7 +592,7 @@ namespace BloomHarvester
 			if (image.Metadata != null && image.Metadata.ExifProfile != null &&
 				image.Metadata.ExifProfile.TryGetValue(SixLabors.ImageSharp.Metadata.Profiles.Exif.ExifTag.Orientation, out var orientObj))
 			{
-				uint orient = 0;
+				uint orient;
 				// Simply casting orientObj.Value to (uint) throws an exception if the underlying object is actually a ushort.
 				// See https://issues.bloomlibrary.org/youtrack/issue/BH-6025.
 				switch (orientObj.DataType)
