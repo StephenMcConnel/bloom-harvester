@@ -168,7 +168,8 @@ namespace BloomHarvester
 			{
 				// We've set the epub.mode to flowable, so we need to let Bloom know about it when we
 				// create the artifacts.  (This is written to a temporary folder.)
-				SIL.IO.RobustFile.WriteAllText(settingsPath, DynamicJson.Serialize(_publishSettings));
+				// (Don't use DynamicJson.Serialize() -- it doesn't work like you might think.)
+				SIL.IO.RobustFile.WriteAllText(settingsPath, _publishSettings.ToString());
 			}
 		}
 
