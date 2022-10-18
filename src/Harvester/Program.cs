@@ -162,8 +162,8 @@ namespace BloomHarvester
 				$"queryWhere: {QueryWhere}\n" +
 				$"count: {Count}\n" +
 				$"skipUploadBloomDigitalArtifacts: {SkipUploadBloomDigitalArtifacts}\n" +
-				$"skipUploadEPub: {SkipUploadEPub}" +
-				$"skipUploadBloomSource: {SkipUploadBloomSource}";
+				$"skipUploadEPub: {SkipUploadEPub}\n" +
+				$"skipUploadBloomSource: {SkipUploadBloomSource}\n";
 		}
 
 		public void ValidateOptions()
