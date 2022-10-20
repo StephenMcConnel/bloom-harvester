@@ -62,7 +62,8 @@ namespace BloomHarvester.Parse.Model
 
 		// Below follow properties from the book table, the ones that we've needed to this point.
 		// There are many more properties from the book table that we could add when they are needed.
-		// When adding a new property, you probably also need to add it to the list of keys selected in ParseClient.cs
+		// When adding a new property, it is added to the list of keys selected in ParseClient.cs
+		// by the method GetParseKeys() below.
 
 		#region Harvester-specific properties
 		[JsonProperty(kHarvestStateField)]
@@ -117,6 +118,9 @@ namespace BloomHarvester.Parse.Model
 
 		[JsonProperty("brandingProjectName")]
 		public string BrandingProjectName { get; set; }
+
+		[JsonProperty("draft")]
+		public readonly bool? IsDraft;
 
 		/// <summary>
 		/// A json object used to limit what the Library shows the user for each book.
