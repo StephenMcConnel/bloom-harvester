@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -52,8 +52,12 @@ namespace BloomHarvester
 			Language1Code = GetBestLangCode(1) ?? "";
 			Language2Code = GetBestLangCode(2) ?? "en";
 			Language3Code = GetBestLangCode(3) ?? "";
+			SignLanguageCode = GetBestLangCode(-1) ?? "";
 
 			var metaObj = DynamicJson.Parse(meta);
+			if (SignLanguageCode == "") // use the older method of looking for a sign language feature
+				SignLanguageCode = GetSignLanguageCode(metaObj);
+
 			if (metaObj.IsDefined("brandingProjectName"))
 			{
 				Branding = metaObj.brandingProjectName;
@@ -67,8 +71,6 @@ namespace BloomHarvester
 			}
 
 			_bookshelf = GetBookshelfIfPossible(_dom, metaObj);
-
-			var signLanguageCode = GetSignLanguageCode(metaObj);
 
 			string pageNumberStyle = null;
 			if (metaObj.IsDefined("page-number-style"))
@@ -87,10 +89,11 @@ namespace BloomHarvester
 					new XElement("Language1Iso639Code", new XText(Language1Code)),
 					new XElement("Language2Iso639Code", new XText(Language2Code)),
 					new XElement("Language3Iso639Code", new XText(Language3Code)),
-					new XElement("SignLanguageIso639Code", new XText(signLanguageCode)),
+					new XElement("SignLanguageIso639Code", new XText(SignLanguageCode)),
 					new XElement("Language1Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language1Code))),
 					new XElement("Language2Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language2Code))),
 					new XElement("Language3Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language3Code))),
+					new XElement("SignLanguageName", new XText(GetLanguageDisplayNameOrEmpty(metaObj, SignLanguageCode))),
 					new XElement("XMatterPack", new XText(GetBestXMatter())),
 					new XElement("BrandingProjectName", new XText(Branding ?? "")),
 					new XElement("DefaultBookTags", new XText(_bookshelf)),
@@ -189,6 +192,8 @@ namespace BloomHarvester
 			return _bookshelf;
 		}
 
+		// [Obsolete: The DataDiv now contains (as of 5.5) the signlanguage code. We use this in case
+		// a book was uploaded with an older Bloom.]
 		// The only trace in the book that it belongs to a collection with a sign language is that
 		// it is marked as having the sign language feature for that language. This is unfortunate but
 		// the best we can do with the data we're currently uploading. We really need to know this,
@@ -233,7 +238,8 @@ namespace BloomHarvester
 		/// <returns>The language code for the specified language, as determined from the bloomDataDiv. Returns null if not found.</returns>
 		private string GetBestLangCode(int x)
 		{
-			string xpathString = $"//*[@id='bloomDataDiv']/*[@data-book='contentLanguage{x}']";
+			string xpathString = "//*[@id='bloomDataDiv']/*[@data-book='";
+			xpathString += x < 1 ? "signLanguage']": $"contentLanguage{x}']";
 			var matchingNodes = _dom.SafeSelectNodes(xpathString);
 			if (matchingNodes.Count == 0)
 			{
@@ -249,6 +255,9 @@ namespace BloomHarvester
 
 		private string GetLanguageCodeFromHtml(int languageNumber)
 		{
+			// Sign language codes don't accompany videos in the Html.
+			if (languageNumber < 0)
+				return null;
 			string classToLookFor;
 			switch (languageNumber)
 			{
@@ -338,6 +347,7 @@ namespace BloomHarvester
 		public string Language1Code { get;}
 		public string Language2Code { get; }
 		public string Language3Code { get; set; }
+		public string SignLanguageCode { get; }
 		public string Branding { get; }
 
 		/// <summary>
