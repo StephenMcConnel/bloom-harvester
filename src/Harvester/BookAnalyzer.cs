@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -41,7 +41,8 @@ namespace BloomHarvester
 		private readonly HtmlDom _dom;
 		private readonly string _bookDirectory;
 		private readonly string _bookshelf;
-		private readonly float _bloomVersion = 0.0F;
+		private readonly Version _bloomVersion;
+		private readonly Version _version5_4 = new Version(5,4);
 		private readonly dynamic _publishSettings;
 
 		public BookAnalyzer(string html, string meta, string bookDirectory = "")
@@ -51,8 +52,12 @@ namespace BloomHarvester
 			Language1Code = GetBestLangCode(1) ?? "";
 			Language2Code = GetBestLangCode(2) ?? "en";
 			Language3Code = GetBestLangCode(3) ?? "";
+			SignLanguageCode = GetBestLangCode(-1) ?? "";
 
 			var metaObj = DynamicJson.Parse(meta);
+			if (SignLanguageCode == "") // use the older method of looking for a sign language feature
+				SignLanguageCode = GetSignLanguageCode(metaObj);
+
 			if (metaObj.IsDefined("brandingProjectName"))
 			{
 				Branding = metaObj.brandingProjectName;
@@ -66,8 +71,6 @@ namespace BloomHarvester
 			}
 
 			_bookshelf = GetBookshelfIfPossible(_dom, metaObj);
-
-			var signLanguageCode = GetSignLanguageCode(metaObj);
 
 			string pageNumberStyle = null;
 			if (metaObj.IsDefined("page-number-style"))
@@ -86,10 +89,11 @@ namespace BloomHarvester
 					new XElement("Language1Iso639Code", new XText(Language1Code)),
 					new XElement("Language2Iso639Code", new XText(Language2Code)),
 					new XElement("Language3Iso639Code", new XText(Language3Code)),
-					new XElement("SignLanguageIso639Code", new XText(signLanguageCode)),
+					new XElement("SignLanguageIso639Code", new XText(SignLanguageCode)),
 					new XElement("Language1Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language1Code))),
 					new XElement("Language2Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language2Code))),
 					new XElement("Language3Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language3Code))),
+					new XElement("SignLanguageName", new XText(GetLanguageDisplayNameOrEmpty(metaObj, SignLanguageCode))),
 					new XElement("XMatterPack", new XText(GetBestXMatter())),
 					new XElement("BrandingProjectName", new XText(Branding ?? "")),
 					new XElement("DefaultBookTags", new XText(_bookshelf)),
@@ -106,21 +110,9 @@ namespace BloomHarvester
 				var license = metaObj["license"] as string;
 				BookHasCustomLicense = license == "custom";
 			}
-			// Extract the Bloom version from the node that looks like
-			// <meta name="Generator" content="Bloom Version 5.0.0 (apparent build date: 01-Feb-2021)" />
-			// This is the most recent version to edit the book, and the version that uploaded it.
-			_bloomVersion = -1.0F;
+			// Extract the Bloom version that created/uploaded the book.
+			_bloomVersion = _dom.GetGeneratorVersion();
 			var generatorNode = _dom.RawDom.SelectSingleNode("//head/meta[@name='Generator']") as XmlElement;
-			if (generatorNode != null)
-			{
-				var generatorContent = generatorNode.GetAttribute("content");
-				if (!String.IsNullOrEmpty(generatorContent))
-				{
-					var version = Regex.Match(generatorContent, "^Bloom Version ([0-9]+\\.[0-9]+)");
-					if (version.Success && version.Groups.Count == 2)
-						float.TryParse(version.Groups[1].Value, out _bloomVersion);
-				}
-			}
 			_publishSettings = null;
 			var settingsPath = Path.Combine(_bookDirectory,"publish-settings.json");
 			var needSave = false;
@@ -134,7 +126,7 @@ namespace BloomHarvester
 				{
 					var settingsRawText = SIL.IO.RobustFile.ReadAllText(settingsPath);
 					_publishSettings = DynamicJson.Parse(settingsRawText, Encoding.UTF8) as DynamicJson;
-					if (_bloomVersion < 5.4F)
+					if (_bloomVersion < _version5_4)
 					{
 						if (!_publishSettings.IsDefined("epub"))
 						{
@@ -159,7 +151,7 @@ namespace BloomHarvester
 					_publishSettings = null;
 				}
 			}
-			if (_publishSettings == null && _bloomVersion < 5.4F)
+			if (_publishSettings == null && _bloomVersion < _version5_4)
 			{
 				_publishSettings = DynamicJson.Parse("{\"epub\":{\"mode\":\"flowable\"}}");
 				needSave = true;
@@ -200,6 +192,8 @@ namespace BloomHarvester
 			return _bookshelf;
 		}
 
+		// [Obsolete: The DataDiv now contains (as of 5.5) the signlanguage code. We use this in case
+		// a book was uploaded with an older Bloom.]
 		// The only trace in the book that it belongs to a collection with a sign language is that
 		// it is marked as having the sign language feature for that language. This is unfortunate but
 		// the best we can do with the data we're currently uploading. We really need to know this,
@@ -244,7 +238,8 @@ namespace BloomHarvester
 		/// <returns>The language code for the specified language, as determined from the bloomDataDiv. Returns null if not found.</returns>
 		private string GetBestLangCode(int x)
 		{
-			string xpathString = $"//*[@id='bloomDataDiv']/*[@data-book='contentLanguage{x}']";
+			string xpathString = "//*[@id='bloomDataDiv']/*[@data-book='";
+			xpathString += x < 1 ? "signLanguage']": $"contentLanguage{x}']";
 			var matchingNodes = _dom.SafeSelectNodes(xpathString);
 			if (matchingNodes.Count == 0)
 			{
@@ -260,6 +255,9 @@ namespace BloomHarvester
 
 		private string GetLanguageCodeFromHtml(int languageNumber)
 		{
+			// Sign language codes don't accompany videos in the Html.
+			if (languageNumber < 0)
+				return null;
 			string classToLookFor;
 			switch (languageNumber)
 			{
@@ -349,6 +347,7 @@ namespace BloomHarvester
 		public string Language1Code { get;}
 		public string Language2Code { get; }
 		public string Language3Code { get; set; }
+		public string SignLanguageCode { get; }
 		public string Branding { get; }
 
 		/// <summary>
@@ -385,7 +384,7 @@ namespace BloomHarvester
 			// Bloom 5.4 sets a default value of "fixed" unless the user changes it.
 			// Previous versions of Bloom should not even have a value for this setting,
 			// but we set it to "flowable" earlier to preserve old behavior.
-			if (mode == "fixed" && _bloomVersion >= 5.4)
+			if (mode == "fixed" && _bloomVersion >= _version5_4)
 				return true;
 			foreach (var div in GetNumberedPages().ToList())
 			{
