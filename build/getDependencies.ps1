@@ -17,7 +17,7 @@ $folders = $libDir
 
 # Download/extract/copy dependencies from Bloom Desktop
 $dependenciesDir = "$($downloadDir)\UnzippedDependencies"
-$command = "$($PSScriptRoot)\downloadAndExtractZip.ps1 -URL https://build.palaso.org/guestAuth/repository/downloadAll/bt222/latest.lastSuccessful -Filename bloom.zip -Output $($dependenciesDir) $(If ($skipDownload) { "-skipDownload"})"
+$command = "$($PSScriptRoot)\downloadAndExtractZip.ps1 -URL https://build.palaso.org/guestAuth/repository/downloadAll/bt222/harvester.tcbuildtag -Filename bloom.zip -Output $($dependenciesDir) $(If ($skipDownload) { "-skipDownload"})"
 Invoke-Expression $command
 
 
