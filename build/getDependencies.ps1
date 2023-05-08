@@ -23,7 +23,7 @@ Invoke-Expression $command
 
 If ($clean) {
     ForEach ($folder in $folders) {
-        Write-Host "Cleaning directory: $($folder)."        
+        Write-Host "Cleaning directory: $($folder)."
         Remove-FileSystemItem "$($folder)/*" -Recurse
     }
 }
@@ -36,17 +36,15 @@ ForEach ($folder in $folders) {
     Copy-Item "$($folder)\BloomAlpha.exe" -Destination "$($folder)\Bloom.exe" -Force
 	Copy-Item "$($folder)\BloomAlpha.exe.config" -Destination "$($folder)\Bloom.exe.config" -Force
 
-    New-Item -ItemType Directory -Force -Path "$($folder)\Firefox" | Out-Null
-    Copy-Item "$($dependenciesDir)\bin\Release\Firefox\*" -Destination "$($folder)\Firefox\" -Force
-
     New-Item -ItemType Directory -Force -Path "$($folder)\gm" | Out-Null
     Copy-Item "$($dependenciesDir)\bin\Release\gm\*" -Destination "$($folder)\gm\" -Recurse -Force
 
     Copy-Item "$($dependenciesDir)\output\browser" -Destination "$($folder)\" -Recurse -Force
 
     New-Item -ItemType Directory -Force -Path "$($folder)\DistFiles" | Out-Null
-    Copy-Item "$($dependenciesDir)\DistFiles\*" -Destination "$($folder)\DistFiles\" -Force -Exclude "localization"
+    Copy-Item "$($dependenciesDir)\DistFiles\*" -Destination "$($folder)\DistFiles\" -Force -Exclude "localization","fonts"
     Copy-Item "$($dependenciesDir)\DistFiles\localization" -Destination "$($folder)\" -Recurse -Force
+    Copy-Item "$($dependenciesDir)\DistFiles\fonts" -Destination "$($folder)\" -Recurse -Force
 }
 
 
