@@ -39,6 +39,9 @@ ForEach ($folder in $folders) {
     New-Item -ItemType Directory -Force -Path "$($folder)\gm" | Out-Null
     Copy-Item "$($dependenciesDir)\bin\Release\gm\*" -Destination "$($folder)\gm\" -Recurse -Force
 
+    New-Item -ItemType Directory -Force -Path "$($folder)\runtimes" | Out-Null
+    Copy-Item "$($dependenciesDir)\bin\Release\runtimes\*" -Destination "$($folder)\runtimes\" -Recurse -Force
+
     Copy-Item "$($dependenciesDir)\output\browser" -Destination "$($folder)\" -Recurse -Force
 
     New-Item -ItemType Directory -Force -Path "$($folder)\DistFiles" | Out-Null
