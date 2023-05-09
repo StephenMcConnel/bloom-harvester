@@ -98,7 +98,7 @@ namespace BloomHarvester
 					new XElement("BrandingProjectName", new XText(Branding ?? "")),
 					new XElement("DefaultBookTags", new XText(_bookshelf)),
 					new XElement("PageNumberStyle", new XText(pageNumberStyle ?? "")),
-					new XElement("IsLanguage1Rtl"), new XText(isRtl.ToString().ToLowerInvariant())
+					new XElement("IsLanguage1Rtl", new XText(isRtl.ToString().ToLowerInvariant()))
 					);
 			var sb = new StringBuilder();
 			using (var writer = XmlWriter.Create(sb))
