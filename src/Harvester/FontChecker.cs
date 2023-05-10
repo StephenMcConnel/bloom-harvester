@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
+using Bloom.FontProcessing;
 
 namespace BloomHarvester
 {
@@ -181,6 +181,13 @@ namespace BloomHarvester
 			var installedFontCollection = new System.Drawing.Text.InstalledFontCollection();
 
 			var fontFamilyDict = new HashSet<string>(installedFontCollection.Families.Select(x => x.Name), StringComparer.OrdinalIgnoreCase);
+
+			var serve = FontServe.GetInstance();
+			foreach (var font in serve.FontsServed)
+				fontFamilyDict.Add(font.family);
+			if (serve.HasFamily("Andika") && !fontFamilyDict.Contains("Andika New Basic"))
+				fontFamilyDict.Add("Andika New Basic");	// Andika subsumes Andika New Basic
+
 			return fontFamilyDict;
 		}
 	}
