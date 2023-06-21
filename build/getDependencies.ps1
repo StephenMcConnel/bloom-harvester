@@ -17,7 +17,7 @@ $folders = $libDir
 
 # Download/extract/copy dependencies from Bloom Desktop
 $dependenciesDir = "$($downloadDir)\UnzippedDependencies"
-$command = "$($PSScriptRoot)\downloadAndExtractZip.ps1 -URL https://build.palaso.org/guestAuth/repository/downloadAll/bt222/harvester.tcbuildtag -Filename bloom.zip -Output $($dependenciesDir) $(If ($skipDownload) { "-skipDownload"})"
+$command = "$($PSScriptRoot)\downloadAndExtractZip.ps1 -URL https://build.palaso.org/guestAuth/repository/downloadAll/Bloom_BloomDesktopHarvesterBranchContinuous/latest.lastSuccessful -Filename bloom.zip -Output $($dependenciesDir) $(If ($skipDownload) { "-skipDownload"})"
 Invoke-Expression $command
 
 
@@ -33,8 +33,10 @@ ForEach ($folder in $folders) {
 
     New-Item -ItemType Directory -Force -Path "$($folder)" | Out-Null
     Copy-Item "$($dependenciesDir)\bin\Release\*" -Destination "$($folder)\" -Force
-    Copy-Item "$($folder)\BloomAlpha.exe" -Destination "$($folder)\Bloom.exe" -Force
-	Copy-Item "$($folder)\BloomAlpha.exe.config" -Destination "$($folder)\Bloom.exe.config" -Force
+    if (-not(Test-Path -Path "$($folder)\Bloom.exe" -PathType Leaf)) {
+        Copy-Item "$($folder)\BloomAlpha.exe" -Destination "$($folder)\Bloom.exe" -Force
+        Copy-Item "$($folder)\BloomAlpha.exe.config" -Destination "$($folder)\Bloom.exe.config" -Force
+    }
 
     New-Item -ItemType Directory -Force -Path "$($folder)\gm" | Out-Null
     Copy-Item "$($dependenciesDir)\bin\Release\gm\*" -Destination "$($folder)\gm\" -Recurse -Force
