@@ -34,10 +34,10 @@
     <!-- Copy libtidy and its dependency, msvcr120.dll -->
     <Exec Command="copy /Y &quot;$(SolutionDir)\lib\dotnet\libtidy.dll&quot; $(OutDir)" />
     <Exec Command="copy /Y &quot;$(SolutionDir)\lib\dotnet\msvcr120.dll&quot; $(OutDir)" />
-	  <!-- Copy connections.dll to where tests can find it -->
-	  <Exec Command="copy /Y &quot;$(SolutionDir)\lib\dotnet\DistFiles\connections.dll&quot; $(OutDir)" />
-	  <!-- Copy fonts dir to where tests can find it -->
-	  <Exec Command="mkdir $(OutDir)fonts" />
-	  <Exec Command="xcopy /Y &quot;$(SolutionDir)\lib\dotnet\fonts&quot; $(OutDir)fonts" />
+    <!-- Copy connections.dll to where tests can find it -->
+    <Exec Command="copy /Y &quot;$(SolutionDir)\lib\dotnet\DistFiles\connections.dll&quot; $(OutDir)" />
+    <!-- Copy fonts dir to where tests can find it -->
+    <Exec Command="if not exist $(OutDir)fonts mkdir $(OutDir)fonts" />
+    <Exec Command="xcopy /Y &quot;$(SolutionDir)\lib\dotnet\fonts&quot; $(OutDir)fonts" />
   </Target>
 </Project>
