@@ -703,6 +703,7 @@ namespace BloomHarvesterTests
 			fakeFontChecker.Configure().GetInvalidFonts().Returns( new List<string>() );
 
 			var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
+			fakeAnalyzer.Language1Code.Returns("de");
 			fakeAnalyzer.Configure().GetBestPHashImageSource().Returns("test.png");	// any filename is okay except placeholder.png
 			fakeAnalyzer.Configure().ComputeImageHash(default).ReturnsForAnyArgs(args => (ulong)0x123456789ABCDEF);
 			var fakeFileIO = Substitute.For<IFileIO>();
@@ -767,7 +768,7 @@ namespace BloomHarvesterTests
 				_fakeParseClient.ReceivedWithAnyArgs(2).UpdateObject("books", "FakeObjectId", "...");
 
 				// This may be too fragile to keep.  It's a pity there isn't a way to get the arguments back to check inside them instead of only exact matching...
-				var updateJson = "{\"harvestState\":\"Failed\",\"harvestLog\":[\"Error: MissingFont - madeUpFontName\",\"Info: ArtifactSuitability - No ePUB/BloomPub because of missing or invalid font(s)\"],\"phashOfFirstContentImage\":\"0123456789ABCDEF\",\"show\":{\"social\":{\"harvester\":true},\"epub\":{\"harvester\":false},\"bloomReader\":{\"harvester\":false},\"readOnline\":{\"harvester\":false},\"bloomSource\":{\"harvester\":false},\"pdf\":{\"exists\":false},\"shellbook\":{\"harvester\":true}},\"updateSource\":\"bloomHarvester\"}";
+				var updateJson = "{\"harvestState\":\"Failed\",\"harvestLog\":[\"Error: MissingFont - madeUpFontName\",\"Info: ArtifactSuitability - No ePUB/BloomPub because of missing or invalid font(s)\"],\"phashOfFirstContentImage\":\"0123456789ABCDEF\",\"show\":{\"social\":{\"harvester\":true},\"epub\":{\"langTag\":\"de\",\"harvester\":false},\"bloomReader\":{\"harvester\":false},\"readOnline\":{\"harvester\":false},\"bloomSource\":{\"harvester\":false},\"pdf\":{\"langTag\":\"de\",\"exists\":false},\"shellbook\":{\"harvester\":true}},\"updateSource\":\"bloomHarvester\"}";
 				_fakeParseClient.Received(1).UpdateObject("books", "FakeObjectId", updateJson);
 			}
 		}
@@ -1233,6 +1234,103 @@ namespace BloomHarvesterTests
 				{
 					((JObject)socialShowInfo).TryGetValue("harvester", out JToken socialShowInfoSetByHarvester);
 					Assert.That(socialShowInfoSetByHarvester.Value<bool>(), Is.False, "\"social\" show info either should not exist, should be set to false");
+				}
+			}
+		}
+
+		[TestCase("")]
+		[TestCase("{ \"epub\": { \"harvester\": false } }")]
+		[TestCase("{ \"epub\": { \"harvester\": false, \"langTag\": \"pt\" } }")]
+		[TestCase("{ \"pdf\": { \"exists\": false } }")]
+		[TestCase("{ \"pdf\": { \"langTag\": \"pt\" } }")]
+		public void ProcessOneBook_ShowLangTagsSetForPdfAndEpub(string showStringInitialJson)
+		{
+			var options = GetHarvesterOptionsForProcessOneBookTests();
+			var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
+			fakeAnalyzer.Language1Code.Returns("de");
+
+			using (var harvester = GetSubstituteHarvester(options, bookAnalyzer: fakeAnalyzer))
+			{
+				// Yet more test setup
+				var book = BookTests.CreateDefaultBook();
+				if (!String.IsNullOrEmpty(showStringInitialJson))
+					book.Model.Show = JObject.Parse(showStringInitialJson);
+
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
+				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
+
+				// System under test
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				VerifyNoExceptions();
+
+				// Verify the show field
+				var show = (JObject)(book.Model.Show);
+				foreach (var type in new string[] { "pdf", "epub" })
+				{
+					if (!show.TryGetValue(type, out JToken typeShowInfo))
+					{
+						Assert.Fail($"\"{type}\" show info was expected to exist");
+					}
+					else
+					{
+						((JObject)typeShowInfo).TryGetValue("langTag", out JToken showTypeLangTag);
+						Assert.That(showTypeLangTag.Value<string>(), Is.EqualTo("de"), $"\"{type}\" show info should contain langTag");
+
+						if (type == "pdf")
+						{
+							((JObject)typeShowInfo).TryGetValue("exists", out JToken showTypeExists);
+							Assert.That(showTypeExists.Value<bool>(), Is.False, $"\"{type}\" show info should contain \"exists\":false");
+						}
+					}
+				}
+			}
+		}
+
+		[TestCase("")]
+		[TestCase("{ \"epub\": { \"harvester\": false } }")]
+		[TestCase("{ \"epub\": { \"harvester\": false, \"langTag\": \"pt\" } }")]
+		[TestCase("{ \"pdf\": { \"exists\": false } }")]
+		[TestCase("{ \"pdf\": { \"langTag\": \"pt\" } }")]
+		public void ProcessOneBook_ShowLangTagsUnsetForPdfAndEpub(string showStringInitialJson)
+		{
+			var options = GetHarvesterOptionsForProcessOneBookTests();
+
+			// No analyzer is what happens when the process fails in production.
+			// And that's how the code knows we should not set (or should unset) the langTags.
+			//var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
+			//fakeAnalyzer.Language1Code.Returns("de");
+
+			using (var harvester = GetSubstituteHarvester(options/*, bookAnalyzer: fakeAnalyzer*/))
+			{
+				// Yet more test setup
+				var book = BookTests.CreateDefaultBook();
+				if (!String.IsNullOrEmpty(showStringInitialJson))
+					book.Model.Show = JObject.Parse(showStringInitialJson);
+
+				ConfigureForFakeIndexHtmFile(harvester, book.Model.BaseUrl);
+				SetupMockBookDownloadHandler(book.Model.ObjectId, harvester);
+
+				// System under test
+				harvester.ProcessOneBook(book);
+
+				// Validate
+				VerifyNoExceptions();
+
+				// Verify the show field
+				var show = (JObject)(book.Model.Show);
+				foreach (var type in new string[] { "pdf", "epub" })
+				{
+					if (!show.TryGetValue(type, out JToken typeShowInfo))
+					{
+						Assert.Fail($"\"{type}\" show info was expected to exist");
+					}
+					else
+					{
+						var result = ((JObject)typeShowInfo).TryGetValue("langTag", out JToken _);
+						Assert.That(result, Is.False, $"\"{type}\" show info should NOT contain langTag");
+					}
 				}
 			}
 		}

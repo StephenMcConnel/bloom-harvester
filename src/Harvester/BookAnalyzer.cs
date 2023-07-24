@@ -19,6 +19,8 @@ namespace BloomHarvester
 {
 	internal interface IBookAnalyzer
 	{
+		string Language1Code { get; }
+
 		string WriteBloomCollection(string bookFolder);
 
 		bool IsBloomReaderSuitable(List<LogEntry> harvestLogEntries);
