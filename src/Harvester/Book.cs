@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using BloomHarvester.IO;
 using BloomHarvester.LogEntries;
 using BloomHarvester.Logger;
 using BloomHarvester.Parse.Model;
 using Newtonsoft.Json;
-using SIL.IO;
+using Newtonsoft.Json.Linq;
 
 namespace BloomHarvester
 {
@@ -233,6 +232,38 @@ namespace BloomHarvester
 					break;
 				default:
 					throw new ArgumentException($"SetHarvesterEvaluation(): Unrecognized artifact type \"{artifact}\"");
+			}
+		}
+
+		public void SetValueForShowTypeKey(string type, string key, string value)
+		{
+			if (Model != null)
+			{
+				if (!string.IsNullOrEmpty(value))
+				{
+					if (Model.Show == null)
+						Model.Show = JsonConvert.DeserializeObject<JToken>($"{{ \"{type}\": {{ \"{key}\": \"{value}\" }} }}");
+					else if (Model.Show[type] == null)
+						Model.Show[type] = JsonConvert.DeserializeObject<JToken>($"{{ \"{key}\": \"{value}\" }}");
+					else
+						Model.Show[type][key] = value;
+				}
+				else if (Model?.Show?[type]?[key] != null)
+					Model.Show[type][key].Parent.Remove();
+			}
+		}
+
+		public void SetValueForShowTypeKey(string type, string key, bool value)
+		{
+			if (Model != null)
+			{
+				var valueStr = value ? "true" : "false";
+				if (Model.Show == null)
+					Model.Show = JsonConvert.DeserializeObject<JToken>($"{{ \"{type}\": {{ \"{key}\": {valueStr} }} }}");
+				else if (Model.Show[type] == null)
+					Model.Show[type] = JsonConvert.DeserializeObject<JToken>($"{{ \"{key}\": {valueStr} }}");
+				else
+					Model.Show[type][key] = value;
 			}
 		}
 
