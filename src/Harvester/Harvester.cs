@@ -14,7 +14,6 @@ using BloomHarvester.Parse;
 using BloomHarvester.Parse.Model;
 using BloomHarvester.WebLibraryIntegration;
 using BloomTemp;
-using Newtonsoft.Json;
 using SIL.IO;
 
 
@@ -927,6 +926,7 @@ namespace BloomHarvester
 
 			if (!_options.SkipUploadEPub || anyFontErrors)
 			{
+				book.SetValueForShowTypeKey("epub", "langTag", analyzer?.Language1Code);
 				book.SetHarvesterEvaluation("epub", isSuccessful && _ePubExists && _ePubSuitable);
 			}
 
@@ -942,15 +942,14 @@ namespace BloomHarvester
 				book.SetHarvesterEvaluation("bloomSource", isSuccessful);
 			}
 
-			// harvester never makes pdfs at the moment, but it now checks for the existence of the pdf file.
-			if (book.Model != null && !_pdfExists)
+			// harvester never makes pdfs at the moment, but it now sets the langTag
+			// and checks for the existence of the pdf file.
+			if (book.Model != null)
 			{
-				if (book.Model.Show == null)
-					book.Model.Show = JsonConvert.DeserializeObject($"{{ \"pdf\": {{ \"exists\": false }} }}");
-				else if (book.Model.Show.pdf == null)
-					book.Model.Show.pdf = JsonConvert.DeserializeObject($"{{ \"exists\": false }}");
-				else
-					book.Model.Show.pdf.exists = false;
+				book.SetValueForShowTypeKey("pdf", "langTag", analyzer?.Language1Code);
+
+				if (!_pdfExists)
+					book.SetValueForShowTypeKey("pdf", "exists", false);
 			}
 
 			// harvester checks the license to evaluate "shellbook", ignoring any success in generating artifacts
