@@ -14,6 +14,7 @@ using CoenM.ImageHash.HashAlgorithms;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SIL.Xml;
+using Bloom.Collection;
 
 namespace BloomHarvester
 {
@@ -55,6 +56,8 @@ namespace BloomHarvester
 			Language2Code = GetBestLangCode(2) ?? "en";
 			Language3Code = GetBestLangCode(3) ?? "";
 			SignLanguageCode = GetBestLangCode(-1) ?? "";
+			// Try to get the language location information from the xmatter page. See BL-12583.
+			SetLanguageLocationIfPossible();
 
 			var metaObj = DynamicJson.Parse(meta);
 			if (SignLanguageCode == "") // use the older method of looking for a sign language feature
@@ -100,7 +103,10 @@ namespace BloomHarvester
 					new XElement("BrandingProjectName", new XText(Branding ?? "")),
 					new XElement("DefaultBookTags", new XText(_bookshelf)),
 					new XElement("PageNumberStyle", new XText(pageNumberStyle ?? "")),
-					new XElement("IsLanguage1Rtl", new XText(isRtl.ToString().ToLowerInvariant()))
+					new XElement("IsLanguage1Rtl", new XText(isRtl.ToString().ToLowerInvariant())),
+					new XElement("Country", new XText(Country ?? "")),
+					new XElement("Province", new XText(Province ?? "")),
+					new XElement("District", new XText(District ?? ""))
 					);
 			var sb = new StringBuilder();
 			using (var writer = XmlWriter.Create(sb))
@@ -292,6 +298,35 @@ namespace BloomHarvester
 			return lang;
 		}
 
+		private void SetLanguageLocationIfPossible()
+		{
+			string xpathString = "//*[@data-xmatter-page]//*[@data-library='languageLocation']";
+			var matchingNodes = _dom.SafeSelectNodes(xpathString);
+			if (matchingNodes.Count < 1)
+				return;
+			var matchedNode = matchingNodes.Item(0);
+			var rawData = matchedNode.InnerText.Trim();
+			if (String.IsNullOrEmpty(rawData))
+				return;
+			const string separator = ", ";
+			var locationData = rawData.Split(new[] { separator }, StringSplitOptions.None);
+			if (locationData.Length >= 3)
+			{
+				District = locationData[0];
+				Province = locationData[1];
+				Country = string.Join(separator, locationData.Skip(2));
+			}
+			else if (locationData.Length == 2)
+			{
+				Province = locationData[0];
+				Country = locationData[1];
+			}
+			else if (locationData.Length == 1)
+			{
+				Country = locationData[0];
+			}
+		}
+
 		/// <summary>
 		/// Finds the XMatterName for this book. If it cannot be determined, falls back to "Device"
 		/// </summary>
@@ -351,6 +386,10 @@ namespace BloomHarvester
 		public string Language3Code { get; set; }
 		public string SignLanguageCode { get; }
 		public string Branding { get; }
+
+		public string Country { get; private set; }
+		public string Province { get; private set; }
+		public string District { get; private set; }
 
 		/// <summary>
 		/// The content appropriate to a skeleton BookCollection file for this book.
