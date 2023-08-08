@@ -14,6 +14,8 @@ using CoenM.ImageHash.HashAlgorithms;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SIL.Xml;
+using Bloom.Collection;
+using SIL.IO;
 
 namespace BloomHarvester
 {
@@ -51,61 +53,85 @@ namespace BloomHarvester
 		{
 			_bookDirectory = bookDirectory;
 			_dom = new HtmlDom(XmlHtmlConverter.GetXmlDomFromHtml(html, false));
-			Language1Code = GetBestLangCode(1) ?? "";
-			Language2Code = GetBestLangCode(2) ?? "en";
-			Language3Code = GetBestLangCode(3) ?? "";
-			SignLanguageCode = GetBestLangCode(-1) ?? "";
-
 			var metaObj = DynamicJson.Parse(meta);
-			if (SignLanguageCode == "") // use the older method of looking for a sign language feature
-				SignLanguageCode = GetSignLanguageCode(metaObj);
-
-			if (metaObj.IsDefined("brandingProjectName"))
+			var uploadedCollectionSettingsPath = Path.Combine(_bookDirectory, "collectionFiles", "book.uploadCollectionSettings");
+			if (RobustFile.Exists(uploadedCollectionSettingsPath))
 			{
-				Branding = metaObj.brandingProjectName;
-			}
+				BloomCollection = RobustFile.ReadAllText(uploadedCollectionSettingsPath);
+				// Set public properties from the uploaded Bloom Collection settings.
+				var xdoc = new XmlDocument();
+				xdoc.LoadXml(BloomCollection);
+				Language1Code = xdoc.SelectSingleNode("/Collection/Language1Iso639Code")?.InnerText ?? "";
+				Language2Code = xdoc.SelectSingleNode("/Collection/Language2Iso639Code")?.InnerText ?? "";
+				Language3Code = xdoc.SelectSingleNode("/Collection/Language3Iso639Code")?.InnerText ?? "";
+				SignLanguageCode = xdoc.SelectSingleNode("/Collection/SignLanguageIso639Code")?.InnerText ?? "";
+				Country = xdoc.SelectSingleNode("/Collection/Country")?.InnerText ?? "";
+				Province = xdoc.SelectSingleNode("/Collection/Province")?.InnerText ?? "";
+				District = xdoc.SelectSingleNode("/Collection/District")?.InnerText ?? "";
+				Branding = xdoc.SelectSingleNode("/Collection/BrandingProjectName")?.InnerText ?? "";
+				_bookshelf = GetBookShelfFromTagsIfPossible(xdoc.SelectSingleNode("/Collection/DefaultBookTags")?.InnerText ?? "");			}
 			else
 			{
-				// If we don't set this default value, then the epub will not build successfully. (The same is probably true for the
-				// bloompub file.)  We get a "Failure to completely load visibility document in RemoveUnwantedContent" exception thrown.
-				// See https://issues.bloomlibrary.org/youtrack/issue/BL-8485.
-				Branding = "Default";
+				Language1Code = GetBestLangCode(1) ?? "";
+				Language2Code = GetBestLangCode(2) ?? "en";
+				Language3Code = GetBestLangCode(3) ?? "";
+				SignLanguageCode = GetBestLangCode(-1) ?? "";
+				// Try to get the language location information from the xmatter page. See BL-12583.
+				SetLanguageLocationIfPossible();
+
+				if (SignLanguageCode == "") // use the older method of looking for a sign language feature
+					SignLanguageCode = GetSignLanguageCode(metaObj);
+
+				if (metaObj.IsDefined("brandingProjectName"))
+				{
+					Branding = metaObj.brandingProjectName;
+				}
+				else
+				{
+					// If we don't set this default value, then the epub will not build successfully. (The same is probably true for the
+					// bloompub file.)  We get a "Failure to completely load visibility document in RemoveUnwantedContent" exception thrown.
+					// See https://issues.bloomlibrary.org/youtrack/issue/BL-8485.
+					Branding = "Default";
+				}
+
+				_bookshelf = GetBookshelfIfPossible(_dom, metaObj);
+
+				string pageNumberStyle = null;
+				if (metaObj.IsDefined("page-number-style"))
+				{
+					pageNumberStyle = metaObj["page-number-style"];
+				}
+
+				bool isRtl = false;
+				if (metaObj.IsDefined("isRtl"))
+				{
+					isRtl = metaObj["isRtl"];
+				}
+
+				var bloomCollectionElement =
+					new XElement("Collection",
+						new XElement("Language1Iso639Code", new XText(Language1Code)),
+						new XElement("Language2Iso639Code", new XText(Language2Code)),
+						new XElement("Language3Iso639Code", new XText(Language3Code)),
+						new XElement("SignLanguageIso639Code", new XText(SignLanguageCode)),
+						new XElement("Language1Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language1Code))),
+						new XElement("Language2Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language2Code))),
+						new XElement("Language3Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language3Code))),
+						new XElement("SignLanguageName", new XText(GetLanguageDisplayNameOrEmpty(metaObj, SignLanguageCode))),
+						new XElement("XMatterPack", new XText(GetBestXMatter())),
+						new XElement("BrandingProjectName", new XText(Branding ?? "")),
+						new XElement("DefaultBookTags", new XText(_bookshelf)),
+						new XElement("PageNumberStyle", new XText(pageNumberStyle ?? "")),
+						new XElement("IsLanguage1Rtl", new XText(isRtl.ToString().ToLowerInvariant())),
+						new XElement("Country", new XText(Country ?? "")),
+						new XElement("Province", new XText(Province ?? "")),
+						new XElement("District", new XText(District ?? ""))
+						);
+				var sb = new StringBuilder();
+				using (var writer = XmlWriter.Create(sb))
+					bloomCollectionElement.WriteTo(writer);
+				BloomCollection = sb.ToString();
 			}
-
-			_bookshelf = GetBookshelfIfPossible(_dom, metaObj);
-
-			string pageNumberStyle = null;
-			if (metaObj.IsDefined("page-number-style"))
-			{
-				pageNumberStyle = metaObj["page-number-style"];
-			}
-
-			bool isRtl = false;
-			if (metaObj.IsDefined("isRtl"))
-			{
-				isRtl = metaObj["isRtl"];
-			}
-
-			var bloomCollectionElement =
-				new XElement("Collection",
-					new XElement("Language1Iso639Code", new XText(Language1Code)),
-					new XElement("Language2Iso639Code", new XText(Language2Code)),
-					new XElement("Language3Iso639Code", new XText(Language3Code)),
-					new XElement("SignLanguageIso639Code", new XText(SignLanguageCode)),
-					new XElement("Language1Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language1Code))),
-					new XElement("Language2Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language2Code))),
-					new XElement("Language3Name", new XText(GetLanguageDisplayNameOrEmpty(metaObj, Language3Code))),
-					new XElement("SignLanguageName", new XText(GetLanguageDisplayNameOrEmpty(metaObj, SignLanguageCode))),
-					new XElement("XMatterPack", new XText(GetBestXMatter())),
-					new XElement("BrandingProjectName", new XText(Branding ?? "")),
-					new XElement("DefaultBookTags", new XText(_bookshelf)),
-					new XElement("PageNumberStyle", new XText(pageNumberStyle ?? "")),
-					new XElement("IsLanguage1Rtl", new XText(isRtl.ToString().ToLowerInvariant()))
-					);
-			var sb = new StringBuilder();
-			using (var writer = XmlWriter.Create(sb))
-				bloomCollectionElement.WriteTo(writer);
-			BloomCollection = sb.ToString();
 
 			if (metaObj.IsDefined("license"))
 			{
@@ -165,6 +191,15 @@ namespace BloomHarvester
 				// (Don't use DynamicJson.Serialize() -- it doesn't work like you might think.)
 				SIL.IO.RobustFile.WriteAllText(settingsPath, _publishSettings.ToString());
 			}
+		}
+
+		private string GetBookShelfFromTagsIfPossible(string defaultTagsString)
+		{
+			if (String.IsNullOrEmpty(defaultTagsString))
+				return String.Empty;
+			var defaultTags = defaultTagsString.Split(',');
+			var defaultBookshelfTag = defaultTags.Where(t => t.StartsWith("bookshelf:")).FirstOrDefault();
+			return defaultBookshelfTag ?? String.Empty;
 		}
 
 		private string GetBookshelfIfPossible(HtmlDom dom, dynamic metaObj)
@@ -292,6 +327,35 @@ namespace BloomHarvester
 			return lang;
 		}
 
+		private void SetLanguageLocationIfPossible()
+		{
+			string xpathString = "//*[@data-xmatter-page]//*[@data-library='languageLocation']";
+			var matchingNodes = _dom.SafeSelectNodes(xpathString);
+			if (matchingNodes.Count < 1)
+				return;
+			var matchedNode = matchingNodes.Item(0);
+			var rawData = matchedNode.InnerText.Trim();
+			if (String.IsNullOrEmpty(rawData))
+				return;
+			const string separator = ", ";
+			var locationData = rawData.Split(new[] { separator }, StringSplitOptions.None);
+			if (locationData.Length >= 3)
+			{
+				District = locationData[0];
+				Province = locationData[1];
+				Country = string.Join(separator, locationData.Skip(2));
+			}
+			else if (locationData.Length == 2)
+			{
+				Province = locationData[0];
+				Country = locationData[1];
+			}
+			else if (locationData.Length == 1)
+			{
+				Country = locationData[0];
+			}
+		}
+
 		/// <summary>
 		/// Finds the XMatterName for this book. If it cannot be determined, falls back to "Device"
 		/// </summary>
@@ -352,8 +416,13 @@ namespace BloomHarvester
 		public string SignLanguageCode { get; }
 		public string Branding { get; }
 
+		public string Country { get; private set; }
+		public string Province { get; private set; }
+		public string District { get; private set; }
+
 		/// <summary>
-		/// The content appropriate to a skeleton BookCollection file for this book.
+		/// Either the contents of the uploaded Collection settings file or a generated
+		/// skeleton BookCollection file for this book.
 		/// </summary>
 		public string BloomCollection { get; set; }
 

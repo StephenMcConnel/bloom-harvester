@@ -14,3 +14,7 @@ packages/*.*
 packages/
 *.suo
 *.psess
+
+publish-settings.json
+
+TestResult.xml
