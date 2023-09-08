@@ -106,6 +106,14 @@ namespace BloomHarvester
 				}
 				if (!String.IsNullOrEmpty(bookFontName) && !computerFontNames.Contains(bookFontName))
 				{
+					if ((bookFontName.StartsWith("AndikaNewBasic-") || bookFontName == "AndikaNewBasic") &&
+						computerFontNames.Contains("Andika"))
+					{
+						// 'AndikaNewBasic' is a special case; it really ought to have spaces in it.
+						// It may only show up this way in books by pasting from MS Word, and when serving fonts,
+						// Bloom will replace it with 'Andika' anyway. So we don't want to report it as missing.
+						continue;
+					}
 					missingFonts.Add(bookFontName);
 				}
 			}
@@ -185,8 +193,10 @@ namespace BloomHarvester
 			var serve = FontServe.GetInstance();
 			foreach (var font in serve.FontsServed)
 				fontFamilyDict.Add(font.family);
-			if (serve.HasFamily("Andika") && !fontFamilyDict.Contains("Andika New Basic"))
-				fontFamilyDict.Add("Andika New Basic");	// Andika subsumes Andika New Basic
+			if (serve.HasFamily("Andika")) {
+				if(!fontFamilyDict.Contains("Andika New Basic"))
+					fontFamilyDict.Add("Andika New Basic");	// Andika subsumes Andika New Basic
+			}
 
 			return fontFamilyDict;
 		}
