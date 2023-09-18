@@ -16,10 +16,12 @@ namespace BloomHarvesterTests
 		private BookAnalyzer _bilingualAnalyzer;
 		private BookAnalyzer _monolingualBookInBilingualCollectionAnalyzer;
 		private BookAnalyzer _monolingualBookInTrilingualCollectionAnalyzer;
+		private BookAnalyzer _bilingualBookInTrilingualCollectionAnalyzer;
 		private BookAnalyzer _emptyBrandingAnalyzer;
 		private BookAnalyzer _silleadBrandingAnalyzer;
 		private XElement _twoLanguageCollection;
 		private XElement _threeLanguageCollection;
+		private XElement _threeLanguageCollectionUsingTwo;
 		private XElement _silleadCollection;
 		private BookAnalyzer _epubCheckAnalyzer;
 		private BookAnalyzer _epubCheckAnalyzer2;
@@ -56,6 +58,52 @@ namespace BloomHarvesterTests
 	</body>
 </html>";
 
+		private string kHtml2 = @"
+<html>
+	<head></head>
+	<body>
+		<div id='bloomDataDiv'>
+			<div data-book=""contentLanguage1"" lang=""*"">cmo-KH</div>
+			<div data-book=""contentLanguage2"" lang=""*"">km</div>
+		</div>
+		<div class=""bloom-page cover coverColor bloom-frontMatter frontCover outsideFrontCover side-right Device16x9Portrait"" data-page=""required singleton"" data-export=""front-matter-cover"" data-xmatter-page=""frontCover"" id=""43b20336-73be-4d49-8dac-e15ac7f74f10"" lang=""en"" data-page-number="""">
+			<div class=""pageLabel"" lang=""en"" data-i18n=""TemplateBooks.PageLabel.Front Cover"">
+				Front Cover
+			</div>
+			<div class=""pageDescription"" lang=""en""></div>
+			<div class=""marginBox"">
+				<div data-book=""cover-branding-top-html"" lang=""*""></div>
+				<div class=""bloom-translationGroup bookTitle"" data-default-languages=""V,N1"">
+					<label class=""bubble"">Book title in {lang}</label>
+					<div class=""bloom-editable bloom-nodefaultstylerule Title-On-Cover-style bloom-padForOverflow"" lang=""z"" contenteditable=""true"" data-book=""bookTitle""></div>
+					<div class=""bloom-editable bloom-nodefaultstylerule Title-On-Cover-style bloom-padForOverflow bloom-content1 bloom-visibility-code-on"" lang=""cmo-KH"" contenteditable=""true"" data-book=""bookTitle"" style=""padding-bottom: 0px;"">
+						<p>០៥ ងក៝ច​នាវ វាក្រាក់</p>
+					</div>
+					<div class=""bloom-editable bloom-nodefaultstylerule Title-On-Cover-style bloom-padForOverflow bloom-contentNational1 bloom-visibility-code-on"" lang=""en"" contenteditable=""true"" data-book=""bookTitle"" style=""padding-bottom: 0px;"">
+						<p>The story of Uncle Krak</p>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class=""bloom-page numberedPage customPage bloom-combinedPage side-right Device16x9Portrait bloom-bilingual"" data-page="""" id=""57d6a153-9a1b-4ce7-bd89-e4ef26a58336"" data-pagelineage=""adcd48df-e9ab-4a07-afd4-6a24d0398382"" data-page-number=""1"" lang="""">
+			<div class=""pageLabel"" data-i18n=""TemplateBooks.PageLabel.Basic Text"" lang=""en"">
+				Basic Text
+			</div>
+			<div class=""pageDescription"" lang=""en""></div>
+			<div class=""marginBox"">
+				<div class=""bloom-translationGroup bloom-trailingElement bloom-vertical-align-center"" data-default-languages=""auto"" data-hasqtip=""true"">
+					<div class=""bloom-editable BigText-style bloom-content1 bloom-visibility-code-on"" style=""min-height: 43.2px;"" tabindex=""0"" spellcheck=""true"" role=""textbox"" aria-label=""false"" data-languagetipcontent=""Bunong"" lang=""cmo-KH"" contenteditable=""true"">
+						<p>ពាង់​រាញា​វាក្រាក់។</p>
+					</div>
+					<div class=""bloom-editable normal-style bloom-content2 bloom-contentNational2 bloom-visibility-code-on"" style=""min-height: 33.6px;"" tabindex=""0"" spellcheck=""true"" role=""textbox"" aria-label=""false"" data-languagetipcontent=""Khmer"" lang=""km"" contenteditable=""true"">
+						<p>គាត់ឈ្មោះ​អ៊ុំក្រាក់។​</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>";
+
 		[OneTimeSetUp]
 		public void OneTimeSetUp()
 		{
@@ -72,8 +120,11 @@ namespace BloomHarvesterTests
 			var monoLingualBookInBilingualCollectionHtml = String.Format(kHtml, kContentLanguage1Xml, "").Replace("bloom-content2 ", "");
 			_monolingualBookInBilingualCollectionAnalyzer = new BookAnalyzer(monoLingualBookInBilingualCollectionHtml, GetMetaData());
 
+			_bilingualBookInTrilingualCollectionAnalyzer = new BookAnalyzer(kHtml2, GetMetaData2());
+
 			_twoLanguageCollection = XElement.Parse(_monolingualBookInBilingualCollectionAnalyzer.BloomCollection);
 			_threeLanguageCollection = XElement.Parse(_monolingualBookInTrilingualCollectionAnalyzer.BloomCollection);
+			_threeLanguageCollectionUsingTwo = XElement.Parse(_bilingualBookInTrilingualCollectionAnalyzer.BloomCollection);
 			_silleadCollection = XElement.Parse(_silleadBrandingAnalyzer.BloomCollection);
 
 			_epubCheckAnalyzer = new BookAnalyzer(kHtmlUnmodifiedPages, GetMetaData());
@@ -105,6 +156,24 @@ namespace BloomHarvesterTests
 			// can't use string.format here, because the metadata has braces as part of the json.
 			return meta.Replace("{0}", brandingJson);
 		}
+		private string GetMetaData2(string brandingJson = "")
+		{
+			const string meta = @"{""a11y_NoEssentialInfoByColor"":false,""a11y_NoTextIncludedInAnyImages"":false,""epub_HowToPublishImageDescriptions"":0,""epub_RemoveFontStyles"":false,
+	""bookInstanceId"":""11c2c600-35af-488b-a8d6-3479edcb9217"",""suitableForMakingShells"":false,""suitableForMakingTemplates"":false,""suitableForVernacularLibrary"":true,
+	""bloomdVersion"":0,""experimental"":false,{0}""folio"":false,""isRtl"":false,""title"":""Aeneas"",
+	""allTitles"":""{\""en\"":\""Aeneas\"",\""es\"":\""Spanish title\""}"",""baseUrl"":null,""bookOrder"":null,""isbn"":"""",""bookLineage"":""056B6F11-4A6C-4942-B2BC-8861E62B03B3"",
+	""downloadSource"":""ken@example.com/11c2c600-35af-488b-a8d6-3479edcb9217"",""license"":""cc-by"",""formatVersion"":""2.0"",""licenseNotes"":""Please be nice to John"",
+	""copyright"":""Copyright © 2018, JohnT"",""credits"":"""",""tags"":[],""pageCount"":10,
+	""languages"":[],""langPointers"":[{""__type"":""Pointer"",""className"":""language"",""objectId"":""2cy807OQoe""},{""__type"":""Pointer"",""className"":""language"",""objectId"":
+	""VUiYTJhOyJ""},{""__type"":""Pointer"",""className"":""language"",""objectId"":""jwP3nu7XGY""}],
+	""summary"":null,""allowUploadingToBloomLibrary"":true,""bookletMakingIsAppropriate"":true,""LeveledReaderTool"":null,""LeveledReaderLevel"":0,
+	""country"":"""",""province"":"""",""district"":"""",""xmatterName"":null,""uploader"":{""__type"":""Pointer"",""className"":""_User"",""objectId"":""TWGrqk7NaR""},""tools"":[],
+	""currentTool"":""talkingBookTool"",""toolboxIsOpen"":true,""author"":null,""subjects"":null,""hazards"":null,""a11yFeatures"":null,""a11yLevel"":null,""a11yCertifier"":null,
+	""readingLevelDescription"":null,""typicalAgeRange"":null,""features"":[],
+	""language-display-names"":{""cmo-KH"":""Bunong"",""km"":""Khmer"",""en"":""English"",""de"":""German"",}}";
+			// can't use string.format here, because the metadata has braces as part of the json.
+			return meta.Replace("{0}", brandingJson);
+		}
 
 		[Test]
 		public void Language1Code_InTrilingualBook()
@@ -116,6 +185,7 @@ namespace BloomHarvesterTests
 		public void Language1Code_InBilingualBook()
 		{
 			Assert.That(_bilingualAnalyzer.Language1Code, Is.EqualTo("xk"));
+			Assert.That(_bilingualBookInTrilingualCollectionAnalyzer.Language1Code, Is.EqualTo("cmo-KH"));
 		}
 		[Test]
 		public void Language1Code_InMonolingualBook()
@@ -134,6 +204,7 @@ namespace BloomHarvesterTests
 		public void Language2Code_InBilingualBook()
 		{
 			Assert.That(_bilingualAnalyzer.Language2Code, Is.EqualTo("fr"));
+			Assert.That(_bilingualBookInTrilingualCollectionAnalyzer.Language2Code, Is.EqualTo("en"));
 		}
 
 		[Test]
@@ -153,6 +224,7 @@ namespace BloomHarvesterTests
 		public void Language3Code_InBilingualBook()
 		{
 			Assert.That(_bilingualAnalyzer.Language3Code, Is.EqualTo("de"));
+			Assert.That(_bilingualBookInTrilingualCollectionAnalyzer.Language3Code, Is.EqualTo("km"));
 		}
 
 		[Test]
@@ -172,6 +244,7 @@ namespace BloomHarvesterTests
 		public void SignLanguageCode_InBilingualBook()
 		{
 			Assert.That(_bilingualAnalyzer.SignLanguageCode, Is.EqualTo("aen"));
+			Assert.That(_bilingualBookInTrilingualCollectionAnalyzer.SignLanguageCode, Is.EqualTo(""));
 		}
 
 		[TestCase("Kyrgyzstan2020-XMatter.css", "Kyrgyzstan2020")]
@@ -230,6 +303,7 @@ namespace BloomHarvesterTests
 		{
 			Assert.That(_twoLanguageCollection.Element("Language1Iso639Code")?.Value, Is.EqualTo("xk"));
 			Assert.That(_threeLanguageCollection.Element("Language1Iso639Code")?.Value, Is.EqualTo("xk"));
+			Assert.That(_threeLanguageCollectionUsingTwo.Element("Language1Iso639Code")?.Value, Is.EqualTo("cmo-KH"));
 		}
 
 		[Test]
@@ -237,12 +311,14 @@ namespace BloomHarvesterTests
 		{
 			Assert.That(_twoLanguageCollection.Element("Language2Iso639Code")?.Value, Is.EqualTo("fr"));
 			Assert.That(_threeLanguageCollection.Element("Language2Iso639Code")?.Value, Is.EqualTo("fr"));
+			Assert.That(_threeLanguageCollectionUsingTwo.Element("Language2Iso639Code")?.Value, Is.EqualTo("en"));
 		}
 
 		[Test]
 		public void BookCollection_HasLanguage3Code()
 		{
 			Assert.That(_threeLanguageCollection.Element("Language3Iso639Code")?.Value, Is.EqualTo("de"));
+			Assert.That(_threeLanguageCollectionUsingTwo.Element("Language3Iso639Code")?.Value, Is.EqualTo("km"));
 		}
 
 
@@ -270,6 +346,9 @@ namespace BloomHarvesterTests
 			Assert.That(_threeLanguageCollection.Element("Language1Name")?.Value, Is.EqualTo("Vernacular"));
 			Assert.That(_threeLanguageCollection.Element("Language2Name")?.Value, Is.EqualTo("French"));
 			Assert.That(_threeLanguageCollection.Element("Language3Name")?.Value, Is.EqualTo("German"));
+			Assert.That(_threeLanguageCollectionUsingTwo.Element("Language1Name")?.Value, Is.EqualTo("Bunong"));
+			Assert.That(_threeLanguageCollectionUsingTwo.Element("Language2Name")?.Value, Is.EqualTo("English"));
+			Assert.That(_threeLanguageCollectionUsingTwo.Element("Language3Name")?.Value, Is.EqualTo("Khmer"));
 		}
 
 		[Test]
