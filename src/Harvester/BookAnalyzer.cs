@@ -277,24 +277,48 @@ namespace BloomHarvester
 		{
 			string xpathString = "//*[@id='bloomDataDiv']/*[@data-book='";
 			xpathString += x < 1 ? "signLanguage']": $"contentLanguage{x}']";
-			var matchingNodes = _dom.SafeSelectNodes(xpathString);
-			if (matchingNodes.Count == 0)
-			{
-				// contentLanguage2 and contentLanguage3 are only present in bilingual or trilingual books,
-				// so we fall back to getting lang 2 and 3 from the html if needed.
-				// We should never be missing contentLanguage1 (but having the fallback here is basically free).
-				return GetLanguageCodeFromHtml(x);
-			}
-			var matchedNode = matchingNodes.Item(0);
-			string langCode = matchedNode.InnerText.Trim();
-			return langCode;
+			var dataDivNodes = _dom.SafeSelectNodes(xpathString);
+			// contentLanguage2 and contentLanguage3 are only present in bilingual or trilingual books,
+			// so we fall back to getting lang 2 and 3 from the html if needed.
+			// We should never be missing contentLanguage1 (but having the fallback here is basically free).
+			// However, contentLanguage2 may match either contentNational1 or contentNational2,
+			// and contentLanguage3 may match either contentNational1 or contentNational2. We need
+			// to check for these possibilities to reconstruct the collection language settings.
+			var htmlDiv = GetDivForLanguageUseFromHtml(x);
+			var langFromHtml = htmlDiv?.Attributes["lang"]?.Value;
+			if (dataDivNodes.Count == 0)
+				return langFromHtml;
+			string langFromDataDiv = dataDivNodes.Item(0).InnerText.Trim();
+			if (String.IsNullOrEmpty(langFromHtml) || langFromDataDiv == langFromHtml)
+				return langFromDataDiv;
+			// We have a mismatch between the dataDivNodes[0] and the htmlDiv. htmlDiv wins because it has more
+			// specific information in its class attribute.  (bloom-contentNational1 / bloom-contentNational2)
+			return langFromHtml;
 		}
 
-		private string GetLanguageCodeFromHtml(int languageNumber)
+		private XmlElement GetDivForLanguageUseFromHtml(int languageNumber)
 		{
 			// Sign language codes don't accompany videos in the Html.
 			if (languageNumber < 0)
 				return null;
+			string classToLookFor = GetClassNameForLanguageNumber(languageNumber);
+			// We assume that the bookTitle is always present and may have the relevant language
+			var xpathString = $"//div[contains(@class, '{classToLookFor}') and @data-book='bookTitle' and @lang]";
+			var titleDiv = _dom.SelectSingleNode(xpathString);
+			var lang = titleDiv?.Attributes["lang"]?.Value;
+			if (!String.IsNullOrEmpty(lang))
+				return titleDiv;
+			// Look for a visible div/p that has text in the designated national language.
+			// (This fixes https://issues.bloomlibrary.org/youtrack/issue/BL-11050.)
+			xpathString = $"//div[contains(@class,'bloom-visibility-code-on') and contains(@class,'{classToLookFor}') and @lang]/p[normalize-space(text())!='']";
+			var para = _dom.SelectSingleNode(xpathString);
+			if (para != null)
+				return para.ParentNode as XmlElement;
+			return null;
+		}
+
+		private static string GetClassNameForLanguageNumber(int languageNumber)
+		{
 			string classToLookFor;
 			switch (languageNumber)
 			{
@@ -310,21 +334,7 @@ namespace BloomHarvester
 				default:
 					throw new ArgumentOutOfRangeException(nameof(languageNumber), "Must be 1, 2, or 3");
 			}
-			// We assume that the bookTitle is always present and may have the relevant language
-			var xpathString = $"//div[contains(@class, '{classToLookFor}') and @data-book='bookTitle' and @lang]";
-			var lang = _dom.SelectSingleNode(xpathString)?.Attributes["lang"]?.Value;
-			if (!String.IsNullOrEmpty(lang))
-				return lang;
-			// Look for a visible div/p that has text in the designated national language.
-			// (This fixes https://issues.bloomlibrary.org/youtrack/issue/BL-11050.)
-			xpathString = $"//div[contains(@class,'bloom-visibility-code-on') and contains(@class,'{classToLookFor}') and @lang]/p[normalize-space(text())!='']";
-			var para = _dom.SelectSingleNode(xpathString);
-			if (para != null)
-			{
-				var div = para.ParentNode;
-				lang = div.Attributes["lang"].Value;
-			}
-			return lang;
+			return classToLookFor;
 		}
 
 		private void SetLanguageLocationIfPossible()
