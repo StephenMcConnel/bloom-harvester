@@ -203,7 +203,8 @@ namespace BloomHarvester
 			var s3DownloadClient = new HarvesterS3Client(downloadBucketName, parseDBEnvironment, true);
 			var s3UploadClient = new HarvesterS3Client(uploadBucketName, parseDBEnvironment, false);
 
-			var downloadClient = new HarvesterBookDownload(s3DownloadClient);
+			var downloadClient = new HarvesterBookDownload(parseClient,
+				bloomS3Client: s3DownloadClient);
 
 			var bloomCli = new BloomCliInvoker(logger);
 			var fontChecker = new FontChecker(kGetFontsTimeoutSecs, bloomCli, logger);
