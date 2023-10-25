@@ -14,8 +14,8 @@ namespace BloomHarvester.WebLibraryIntegration
 	/// </summary>
 	class HarvesterBookDownload : BookDownload, IBookDownload
 	{
-		internal HarvesterBookDownload(BloomParseClient parseClient, BloomS3Client bloomS3Client)
-			: base(parseClient, bloomS3Client, new Bloom.BookDownloadStartingEvent())
+		internal HarvesterBookDownload(BloomS3Client bloomS3Client)
+			: base(bloomS3Client)
 		{
 		}
 
