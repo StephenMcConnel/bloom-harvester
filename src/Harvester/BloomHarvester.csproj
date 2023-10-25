@@ -31,7 +31,7 @@
 		<PackageReference Include="Mono.Unix" version="7.1.0-final.1.21458.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
 		<PackageReference Include="RestSharp" Version="106.12.0" />
-		<PackageReference Include="SIL.Core" Version="12.1.0-beta0015" />
+		<PackageReference Include="SIL.Core" Version="13.0.0-beta0074" />
 		<!-- Without this explicit reference, something looks for System.Memory 4.0.1.1 and 4.0.1.2 -->
 		<PackageReference Include="System.Memory" Version="4.5.5" />
 		<!-- Without the explicit reference to System.Runtime.CompilerServices.Unsafe, something (mscorlib?) was pulling in -->
