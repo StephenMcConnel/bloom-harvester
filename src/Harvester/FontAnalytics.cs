@@ -49,8 +49,7 @@ namespace BloomHarvester
 			_diskSpaceManager = new DiskSpaceManager(driveInfo, _logger, issueReporter);
 			(string downloadBucketName, string uploadBucketName) = Harvester.GetS3BucketNames(_options.Environment);
 			var s3DownloadClient = new HarvesterS3Client(downloadBucketName, _options.Environment, true);
-			_downloadClient = new HarvesterBookDownload(parseClient,
-				bloomS3Client: s3DownloadClient);
+			_downloadClient = new HarvesterBookDownload(s3DownloadClient);
 			_parseClient = parseClient;
 			_bloomS3Client = s3DownloadClient;
 			_bloomCli = new BloomCliInvoker(_logger);
