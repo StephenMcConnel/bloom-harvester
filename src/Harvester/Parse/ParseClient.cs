@@ -52,7 +52,7 @@ namespace BloomHarvester.Parse
 	// We could get the URLs and ApplicationID from the BlookDesktop base class. We would add our new Harvester-specific functions in our derived class.
 	//
 	// Right now, there's not enough common functionality to make it worthwhile. Maybe revisit this topic when the code becomes more stable.
-	internal class ParseClient : Bloom.WebLibraryIntegration.BloomParseClient, IParseClient
+	internal class ParseClient : BloomParseClient, IParseClient
 	{
 		// Constructors
 		internal ParseClient(EnvironmentSetting environment, IMonitorLogger logger)

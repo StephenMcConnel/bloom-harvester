@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using Amazon.S3.Model;
 using System.Web;
+using System.Diagnostics;
 
 namespace BloomHarvester.WebLibraryIntegration
 {
@@ -66,7 +67,8 @@ namespace BloomHarvester.WebLibraryIntegration
 			return folder;
 		}
 
-		protected override IAmazonS3 CreateAmazonS3Client(string bucketName, AmazonS3Config s3Config)
+		protected override IAmazonS3 CreateAmazonS3Client(AmazonS3Config s3Config,
+			string bucketName) // was: bucketName, AmazonS3Config s3Config)
 		{
 			var bucketType = _forReading ? "Books" : "Harvester";
 			// The keys aren't very important for reading, since the data we want to read is public,
@@ -94,7 +96,7 @@ namespace BloomHarvester.WebLibraryIntegration
 		/// <param name="cacheControl">optional value for HTTP Cache-Control header.  If not set, S3 does whatever S3 does for cache control.</param>
 		public void UploadFile(string filePath, string uploadFolderKey, string cacheControl)
 		{
-			using (var fileTransferUtility = new TransferUtility(GetAmazonS3(_bucketName)))
+			using (var fileTransferUtility = new TransferUtility(GetAmazonS3WithAccessKey(_bucketName)))
 			{
 				// This uploads but does not set public read
 				// fileTransferUtility.Upload(filePath, $"{_bucketName}/{uploadFolderKey}");
@@ -139,6 +141,49 @@ namespace BloomHarvester.WebLibraryIntegration
 		}
 
 		/// <summary>
+		/// This method was moved here from BloomDesktop's BloomS3Client class, copying the version from
+		/// the 5.6 branch as of 21 March 2024, since it has been removed from that class in Bloom 5.7
+		/// but is still needed here.
+		/// </summary>
+		/// <param name="bucketName"></param>
+		/// <param name="key"></param>
+		public void DeleteBookData(string bucketName, string key)
+		{
+			if (BookUpload.IsDryRun)
+				return;
+
+			var listMatchingObjectsRequest = new ListObjectsRequest()
+			{
+				BucketName = bucketName,
+				Prefix = key
+			};
+
+			ListObjectsResponse matchingFilesResponse;
+			do
+			{
+				// Note: ListObjects can only return 1,000 objects at a time,
+				//       and DeleteObjects can only delete 1,000 objects at a time.
+				//       So a loop is needed if the book contains 1,001+ objects.
+				matchingFilesResponse = GetAmazonS3WithAccessKey(bucketName).ListObjects(listMatchingObjectsRequest);
+				if (matchingFilesResponse.S3Objects.Count == 0)
+					return;
+
+				var deleteObjectsRequest = new DeleteObjectsRequest()
+				{
+					BucketName = bucketName,
+					Objects = matchingFilesResponse.S3Objects.Select(s3Object => new KeyVersion() { Key = s3Object.Key }).ToList()
+				};
+
+				var response = GetAmazonS3WithAccessKey(bucketName).DeleteObjects(deleteObjectsRequest);
+				Debug.Assert(response.DeleteErrors.Count == 0);
+
+				// Prep the next request (if needed)
+				listMatchingObjectsRequest.Marker = matchingFilesResponse.NextMarker;
+			}
+			while (matchingFilesResponse.IsTruncated);  // Returns true if haven't reached the end yet
+		}
+
+		/// <summary>
 		/// Uploads a directory to AWS S3
 		/// </summary>
 		/// <param name="directoryToUpload">The local directory whose contents should be uploaded to S3</param>
@@ -148,7 +193,7 @@ namespace BloomHarvester.WebLibraryIntegration
 			// Delete the directory first in case the directory to upload is a strict subset of the existing contents.
 			DeleteBookData(_bucketName, uploadFolderKey);
 
-			using (var transferUtility = new TransferUtility(GetAmazonS3(_bucketName)))
+			using (var transferUtility = new TransferUtility(GetAmazonS3WithAccessKey(_bucketName)))
 			{
 				var request = new TransferUtilityUploadDirectoryRequest
 				{
@@ -175,7 +220,7 @@ namespace BloomHarvester.WebLibraryIntegration
 
 		public string GetFileWithExtension(string bookFolder, string extension, string idealBaseName="")
 		{
-			var s3 = GetAmazonS3(_bucketName);
+			var s3 = GetAmazonS3WithAccessKey(_bucketName);
 			var request = new ListObjectsV2Request();
 			request.BucketName = _bucketName;
 			request.Prefix = bookFolder;
@@ -202,7 +247,7 @@ namespace BloomHarvester.WebLibraryIntegration
 
 		public bool DoesFileExist(string fileName)
 		{
-			var s3 = GetAmazonS3(_bucketName);
+			var s3 = GetAmazonS3WithAccessKey(_bucketName);
 			Amazon.S3.IO.S3FileInfo s3FileInfo = new Amazon.S3.IO.S3FileInfo(s3, _bucketName, fileName);
 			return s3FileInfo.Exists;
 		}
