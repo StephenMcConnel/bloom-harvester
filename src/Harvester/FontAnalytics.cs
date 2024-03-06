@@ -141,7 +141,6 @@ namespace BloomHarvester
 			}
 
 			// Skip books that are explicitly marked as out of circulation.
-			// Note: Beware, IsInCirculation can also be null, and we DO want to process books where isInCirculation==null
 			if (book.IsInCirculation == false)
 			{
 				reason = "SKIP: Not in circulation";
@@ -357,7 +356,7 @@ namespace BloomHarvester
 			// Include only books that are both in circulation and not in draft.  The former are not
 			// really published, and the latter are not published yet and may change.
 			var whereOptimizationConditions = new List<string>();
-			var validForAnalytics = "\"$and\":[{\"$or\":[{\"inCirculation\":true},{\"inCirculation\":{\"$exists\":false}}]},{\"$or\":[{\"draft\":false},{\"draft\":{\"$exists\":false}}]}]";
+			var validForAnalytics = "\"inCirculation\":true,\"draft\":false";
 			whereOptimizationConditions.Add(validForAnalytics);
 			return whereOptimizationConditions;
 		}
