@@ -307,85 +307,55 @@ namespace BloomHarvester.Parse
 			Console.Out.WriteLine($"{results.Count} matching results.");
 			return results;
 		}
-				
+
 		/// <summary>
-		/// Lazily gets all the results from a Parse database in chunks
+		/// Gets all the results from a Parse database
 		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="request">The request should not include count, limit, skip, or order fields. This method will populate those in order to provide the functionality</param>
-		/// <returns>Yields the results through an IEnumerable as needed</returns>
 		private List<T> GetAllResults<T>(IRestRequest request, out bool didExitPrematurely)
 		{
 			var results = new List<T>();
 
-			int numProcessed = 0;
-			int totalCount = 0;
-			do
+			AddOrReplaceParameter(request, "limit", "1000000"); // Get them all
+
+			Logger?.TrackEvent("ParseClient::GetAllResults Request Sent");
+			var restResponse = this.Client.Execute(request);
+			string responseJson = restResponse.Content;
+
+			ParseResponse<T> response;
+			try
 			{
-				// Make sure you don't have duplicate instances of a lot of these parameters, especially limit and skip.
-				// Parse will not give you the results you want if you have them multiple times.
-				AddOrReplaceParameter(request, "count", "1");
-				AddOrReplaceParameter(request, "limit", "10000");   // The limit should probably be on the higher side. The fewer network DB calls, the better, probably.
-				AddOrReplaceParameter(request, "order", "createdAt");
-				AddOrReplaceParameter(request, "skip", numProcessed.ToString());
-
-				Logger?.TrackEvent("ParseClient::GetAllResults Request Sent");
-				var restResponse = this.Client.Execute(request);
-				string responseJson = restResponse.Content;
-
-				ParseResponse<T> response;
-				try
-				{
-					response = JsonConvert.DeserializeObject<Parse.ParseResponse<T>>(responseJson);
-				}
-				catch (Newtonsoft.Json.JsonReaderException e)
-				{
-					Logger?.LogWarn("ParseClient::GetAllResults() - JsonReaderException.");
-					Logger?.LogVerbose("JsonReaderException: " + e.ToString());
-					didExitPrematurely = true;
-					return results;
-				}
-
-				if (response == null)
-				{
-					// If the Parse Server is down or restarting, the response might time out after a minute or so
-					// and we'll reach this condition.
-					Logger?.LogWarn("ParseClient::GetAllResults() - response was null.");
-					didExitPrematurely = true;
-					return results;
-				}
-
-				totalCount = response.Count;
-				if (totalCount == 0)
-				{
-					Console.Out.WriteLine("Query returned no results.");
-					break;
-				}
-
-				if (response.Results == null)
-				{
-					Logger?.LogWarn("ParseClient::GetAllResults() - response.Results was null.");
-					didExitPrematurely = true;
-					return results;
-				}
-
-				var currentResultCount = response.Results.Length;				
-				if (currentResultCount <= 0)
-				{
-					break;
-				}
-
-				results.AddRange(response.Results);				
-
-				numProcessed += currentResultCount;
-
-				if (numProcessed < totalCount)
-				{
-					string message = $"GetAllResults Rows Retrieved: {numProcessed} out of {totalCount}.";
-					Logger?.LogVerbose(message);
-				}
+				response = JsonConvert.DeserializeObject<Parse.ParseResponse<T>>(responseJson);
 			}
-			while (numProcessed < totalCount);
+			catch (JsonReaderException e)
+			{
+				Logger?.LogWarn("ParseClient::GetAllResults() - JsonReaderException.");
+				Logger?.LogVerbose("JsonReaderException: " + e.ToString());
+				didExitPrematurely = true;
+				return results;
+			}
+
+			if (response == null)
+			{
+				// If the Parse Server is down or restarting, the response might time out after a minute or so
+				// and we'll reach this condition.
+				Logger?.LogWarn("ParseClient::GetAllResults() - response was null.");
+				didExitPrematurely = true;
+				return results;
+			}
+
+			if (response.Results == null)
+			{
+				Logger?.LogWarn("ParseClient::GetAllResults() - response.Results was null.");
+				didExitPrematurely = true;
+				return results;
+			}
+
+			if (response.Results.Length <= 0)
+			{
+				Console.Out.WriteLine("Query returned no results.");
+			}
+
+			results.AddRange(response.Results);
 
 			didExitPrematurely = false;
 			return results;
