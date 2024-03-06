@@ -504,8 +504,8 @@ namespace BloomHarvester
 			// These filters should keep every book we need to process, but it's ok to include some books we don't need to process.
 			// We will still call ShouldProcessBook later to do more checking.
 			var whereOptimizationConditions = new List<string>();
-			// If (!ForceAll) then add (inCirculation == true || inCirculation not set)
-			var inCirculation = "\"$or\":[{\"inCirculation\":true},{\"inCirculation\":{\"$exists\":false}}]";
+			// If (!ForceAll) then add inCirculation == true
+			var inCirculation = "\"inCirculation\":true";
 			// version X.Y => (HarvesterMajorVersion < X) || (HarvesterMajorVersion == X && HarvesterMinorVersion < Y) || (HarvesterMajorVersion doesn't exist)
 			var previousVersion = GetVersionFilterString(includeCurrentVersion: false);
 			// (the HarvesterMinorVersion <= Y for including the current version)
@@ -575,9 +575,7 @@ namespace BloomHarvester
 			}
 			else
 			{
-				bldr.Append("\"$and\":[{");
-				bldr.Append(String.Join("},{", whereConditions));
-				bldr.Append("}]");
+				bldr.Append(String.Join(",", whereConditions));
 			}
 			bldr.Append("}");
 			return bldr.ToString();
@@ -991,7 +989,6 @@ namespace BloomHarvester
 			}
 
 			// Skip books that are explicitly marked as out of circulation.
-			// Note: Beware, IsInCirculation can also be null, and we DO want to process books where isInCirculation==null
 			if (book.IsInCirculation == false)
 			{
 				reason = "SKIP: Not in circulation";
