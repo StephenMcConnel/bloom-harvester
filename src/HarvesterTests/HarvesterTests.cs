@@ -371,7 +371,7 @@ namespace BloomHarvesterTests
 				var result = harvester.GetQueryWhereOptimizations();
 				Assert.AreEqual(2, result.Count);
 				Assert.AreEqual("\"harvestState\" : { \"$in\": [\"New\", \"Updated\", \"Unknown\", \"Requested\"]}", result[0]);
-				Assert.AreEqual("\"$or\":[{\"inCirculation\":true},{\"inCirculation\":{\"$exists\":false}}]", result[1]);
+				Assert.AreEqual("\"inCirculation\":true", result[1]);
 			}
 		}
 
@@ -389,7 +389,7 @@ namespace BloomHarvesterTests
 		{
 			string userInputWhere = "{ \"title\":{\"$regex\":\"^^A\"},\"tags\":\"bookshelf:Ministerio de Educación de Guatemala\" }";
 			string combined = Harvester.InsertQueryWhereOptimizations(userInputWhere, new List<string> {"\"harvesterMajorVersion\":{\"$lt\":2}"} );
-			Assert.AreEqual("{\"$and\":[{\"harvesterMajorVersion\":{\"$lt\":2}},{\"title\":{\"$regex\":\"^^A\"},\"tags\":\"bookshelf:Ministerio de Educación de Guatemala\"}]}", combined);
+			Assert.AreEqual("{\"harvesterMajorVersion\":{\"$lt\":2},\"title\":{\"$regex\":\"^^A\"},\"tags\":\"bookshelf:Ministerio de Educación de Guatemala\"}", combined);
 		}
 		#endregion
 

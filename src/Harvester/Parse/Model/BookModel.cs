@@ -26,6 +26,8 @@ namespace BloomHarvester.Parse.Model
 		/// </summary>
 		public BookModel()
 		{
+			// As of March 2024, we have set the defaultValue to true in the _Schema table for books.inCirculation
+			IsInCirculation = true;
 		}
 
 		/// <summary>
@@ -105,7 +107,7 @@ namespace BloomHarvester.Parse.Model
 		public string[] Features { get; set; }
 
 		[JsonProperty("inCirculation")]
-		public readonly bool? IsInCirculation;
+		public readonly bool IsInCirculation;
 
 		[JsonProperty("langPointers")]
 		public readonly Language[] Languages;
@@ -120,7 +122,7 @@ namespace BloomHarvester.Parse.Model
 		public string BrandingProjectName { get; set; }
 
 		[JsonProperty("draft")]
-		public readonly bool? IsDraft;
+		public readonly bool IsDraft;
 
 		/// <summary>
 		/// A json object used to limit what the Library shows the user for each book.
