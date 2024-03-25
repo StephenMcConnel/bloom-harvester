@@ -950,7 +950,9 @@ namespace BloomHarvester
 			}
 
 			// harvester checks the license to evaluate "shellbook", ignoring any success in generating artifacts
-			book.SetHarvesterEvaluation("shellbook", !analyzer.BookHasCustomLicense);
+			// (If we don't have an analyzer, we can't tell if the book has a custom license or not. But something
+			// has gone wrong if we don't have an analyzer, so make the most negative assumption.)
+			book.SetHarvesterEvaluation("shellbook", !(analyzer?.BookHasCustomLicense ?? true));
 		}
 
 		private bool ShouldProcessBook(BookModel book, out string reason)
