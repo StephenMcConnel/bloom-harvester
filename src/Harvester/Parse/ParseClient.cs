@@ -52,14 +52,13 @@ namespace BloomHarvester.Parse
 	// We could get the URLs and ApplicationID from the BlookDesktop base class. We would add our new Harvester-specific functions in our derived class.
 	//
 	// Right now, there's not enough common functionality to make it worthwhile. Maybe revisit this topic when the code becomes more stable.
-	internal class ParseClient : Bloom.WebLibraryIntegration.BloomParseClient, IParseClient
+	internal class ParseClient : BloomParseClient, IParseClient
 	{
 		// Constructors
 		internal ParseClient(EnvironmentSetting environment, IMonitorLogger logger)
-			:base()
+			:base(CreateRestClient(environment))
 		{
 			_environmentSetting = environment;
-			_client = CreateRestClient(environment);
 			this.ApplicationId = GetApplicationId(environment);
 			Debug.Assert(!String.IsNullOrWhiteSpace(ApplicationId), "Parse Application ID is invalid. Retrieving books from Parse probably won't work. Consider checking your environment variables.");
 
@@ -72,17 +71,14 @@ namespace BloomHarvester.Parse
 			switch (environment)
 			{
 				case EnvironmentSetting.Prod:
-					// This URL gets redirected. It seems to work for reading, but not for writing. For that, we need the direct one.
-					//url = "https://parse.bloomlibrary.org/";
-					url = "https://bloom-parse-server-production.azurewebsites.net/parse";
+					url = "https://server.bloomlibrary.org/parse";
 					break;
 				case EnvironmentSetting.Test:
 					url = "https://bloom-parse-server-unittest.azurewebsites.net/parse";
 					break;
 				case EnvironmentSetting.Dev:
 				default:
-					//url = "https://dev-parse.bloomlibrary.org/";	// Theoretically, this link should work too and is preferred, but it doesn't work in the program for some reason even though it redirects correctly in the browser.
-					url = "https://bloom-parse-server-develop.azurewebsites.net/parse";
+					url = "https://dev-server.bloomlibrary.org/parse";
 					break;
 				case EnvironmentSetting.Local:
 					url = "http://localhost:1337/parse";
