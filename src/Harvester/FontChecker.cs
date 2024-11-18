@@ -78,14 +78,11 @@ namespace BloomHarvester
 			foreach (var font in bookFontNames)
 			{
 				var fontFileFinder = Bloom.FontProcessing.FontFileFinder.GetInstance(false);
-				var fontFiles = fontFileFinder.GetFilesForFont(font);
-				foreach (var file in fontFiles)
+				var file = fontFileFinder.GetFileForFont(font, "normal", "400");
+				if (!Bloom.FontProcessing.FontMetadata.fontFileTypesBloomKnows.Contains(Path.GetExtension(file).ToLowerInvariant()))
 				{
-					if (!Bloom.FontProcessing.FontMetadata.fontFileTypesBloomKnows.Contains(Path.GetExtension(file).ToLowerInvariant()))
-					{
-						invalidFonts.Add(font);
-						break;
-					}
+					invalidFonts.Add(font);
+					break;
 				}
 			}
 			return invalidFonts;
@@ -161,7 +158,7 @@ namespace BloomHarvester
 		}
 
 		/// <summary>
-		/// Gets the fonts referenced by a book baesd on a "getfonts" report file. 
+		/// Gets the fonts referenced by a book based on a "getfonts" report file. 
 		/// </summary>
 		/// <param name="filePath">The path to the report file generated from Bloom's "getfonts" CLI command. Each line of the file should correspond to 1 font name.</param>
 		/// <returns>A list of strings, one for each font referenced by the book.</returns>
