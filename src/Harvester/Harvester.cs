@@ -712,13 +712,13 @@ namespace BloomHarvester
 						_options.SkipUploadBloomDigitalArtifacts = skipUploadBloomDigitalArtifacts;
 						_options.SkipUploadEPub = skipUploadEPub;
 						UpdateSuitabilityOfArtifacts(book, null, false, false, logEntries);
+						book.Model.HarvestLogEntries.AddRange(logEntries.Select(x => x.ToString()).ToList());
 						book.Model.FlushUpdateToDatabase(_parseClient);
 					}
 					catch (Exception)
 					{
 						// If it fails, just let it be and report the first exception rather than the nested exception.
 					}
-					book.Model.HarvestLogEntries.AddRange(logEntries.Select(x => x.ToString()).ToList());
 				}
 			}
 			finally
