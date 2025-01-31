@@ -79,7 +79,9 @@ namespace BloomHarvester
 			{
 				var fontFileFinder = Bloom.FontProcessing.FontFileFinder.GetInstance(false);
 				var file = fontFileFinder.GetFileForFont(font, "normal", "400");
-				if (!Bloom.FontProcessing.FontMetadata.fontFileTypesBloomKnows.Contains(Path.GetExtension(file).ToLowerInvariant()))
+				if (file == null)
+					break;
+				if (!Bloom.FontProcessing.FontMetadata.fontFileTypesBloomKnows.Contains(Path.GetExtension(file)?.ToLowerInvariant()))
 				{
 					invalidFonts.Add(font);
 					break;
