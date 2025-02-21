@@ -72,10 +72,10 @@ namespace BloomHarvester
 			return _invalidFonts;
 		}
 
-		internal static List<string> GetInvalidFonts(List<string> bookFontNames)
+		internal List<string> GetInvalidFonts(List<string> bookFontNames)
 		{
 			var invalidFonts = new List<string>();
-			foreach (var font in bookFontNames)
+			foreach (var font in bookFontNames.Except(_missingFonts)) // No point checking the validity of a font we can't find
 			{
 				var fontFileFinder = Bloom.FontProcessing.FontFileFinder.GetInstance(false);
 				var file = fontFileFinder.GetFileForFont(font, "normal", "400");
