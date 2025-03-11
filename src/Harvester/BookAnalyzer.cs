@@ -44,6 +44,7 @@ namespace BloomHarvester
 	class BookAnalyzer : CollectionSettingsReconstructor, IBookAnalyzer
 	{
 		private readonly Version _bloomVersion;
+		private readonly Version _version5_5 = new Version(5, 5);   // collection settings are uploaded starting with 5.5
 		private readonly Version _version5_4 = new Version(5, 4);	// epub publishing changed in 5.4
 		private readonly Version _version5_3 = new Version(5, 3);	// publishing-settings.json introduced in 5.3
 		private readonly dynamic _publishSettings;
@@ -122,6 +123,10 @@ namespace BloomHarvester
 
 		public override bool LoadFromUploadedSettings()
 		{
+			var uploadVersion = _dom.GetGeneratorVersion();
+			if (uploadVersion < _version5_5)
+				return false;	// even if it exists, the settings file is stale and useless
+
 			var uploadedCollectionSettingsPath = Path.Combine(_bookDirectory, "collectionFiles", "book.uploadCollectionSettings");
 			if (RobustFile.Exists(uploadedCollectionSettingsPath))
 			{
