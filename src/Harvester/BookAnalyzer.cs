@@ -554,10 +554,12 @@ namespace BloomHarvester
 			// We use the numberedPage class to determine this now
 			// You could also try data-page-number, but it's not guaranteed to use numbers like "1", "2", "3"... the numbers may be written in the language of the book (BL-8346)
 			var firstContentImageContainerPath = "//div[contains(@class,'bloom-page')][contains(@class, 'numberedPage')]//div[contains(@class,'bloom-imageContainer')]";
-			var firstContentImageElement = _dom.SelectSingleNode($"{firstContentImageContainerPath}/img");
-			if (firstContentImageElement != null)
+			var imageElements = _dom.SafeSelectNodes($"{firstContentImageContainerPath}/img");
+			for (int i = 0; i < imageElements.Length; ++i)
 			{
-				return firstContentImageElement.GetAttribute("src");
+				var src = imageElements[i].GetAttribute("src");
+				if (!String.IsNullOrEmpty(src) && src != "placeHolder.png")
+					return src;
 			}
 			var fallbackFirstContentImage = _dom.SelectSingleNode(firstContentImageContainerPath);
 			if (fallbackFirstContentImage != null)
@@ -566,10 +568,12 @@ namespace BloomHarvester
 			}
 			// No content page images found.  Try the cover page
 			var coverImageContainerPath = "//div[contains(@class,'bloom-page') and @data-xmatter-page='frontCover']//div[contains(@class,'bloom-imageContainer')]";
-			var coverImg = _dom.SelectSingleNode($"{coverImageContainerPath}/img");
-			if (coverImg != null)
+			var coverImgs = _dom.SafeSelectNodes($"{coverImageContainerPath}/img");
+			for (int i = 0; i < coverImgs.Length; ++i)
 			{
-				return coverImg.GetAttribute("src");
+				var src = coverImgs[i].GetAttribute("src");
+				if (!String.IsNullOrEmpty(src) && src != "placeHolder.png")
+					return src;
 			}
 			var fallbackCoverImg = _dom.SelectSingleNode(coverImageContainerPath);
 			if (fallbackCoverImg != null)
