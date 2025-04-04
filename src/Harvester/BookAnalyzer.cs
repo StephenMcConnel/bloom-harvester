@@ -121,6 +121,9 @@ namespace BloomHarvester
 			}
 		}
 
+		/// <summary>
+		/// This is called from the base (CollectionSettingsReconstructor) constructor.
+		/// </summary>
 		public override bool LoadFromUploadedSettings()
 		{
 			var uploadVersion = _dom.GetGeneratorVersion();
@@ -141,7 +144,7 @@ namespace BloomHarvester
 				Country = xdoc.SelectSingleNode("/Collection/Country")?.InnerText ?? "";
 				Province = xdoc.SelectSingleNode("/Collection/Province")?.InnerText ?? "";
 				District = xdoc.SelectSingleNode("/Collection/District")?.InnerText ?? "";
-				Branding = xdoc.SelectSingleNode("/Collection/BrandingProjectName")?.InnerText ?? "";
+				SubscriptionCode = GetSubscriptionCode(xdoc);
 				_bookshelf = GetBookShelfFromTagsIfPossible(xdoc.SelectSingleNode("/Collection/DefaultBookTags")?.InnerText ?? "");
 				return true;
 			}
@@ -149,6 +152,16 @@ namespace BloomHarvester
 			{
 				return false;
 			}
+		}
+
+		private string GetSubscriptionCode(XmlDocument xdoc)
+		{
+			// We expect to get SubscriptionCode starting with Bloom 6.1.
+			// Older books will come with BrandingProjectName instead.
+			var code = xdoc.SelectSingleNode("/Collection/SubscriptionCode")?.InnerText;
+			if (string.IsNullOrEmpty(code))
+				return xdoc.SelectSingleNode("/Collection/BrandingProjectName")?.InnerText ?? "";
+			return code;
 		}
 
 		private string GetBookShelfFromTagsIfPossible(string defaultTagsString)

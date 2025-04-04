@@ -56,7 +56,7 @@ namespace BloomHarvester.Parse.Model
 				"Features",
 				"Tags",
 				"Show",
-				"BrandingProjectName",
+				"SubscriptionDescriptor",
 				"PHashOfFirstContentImage",
 				"BloomPUBVersion"
 			});
@@ -118,8 +118,8 @@ namespace BloomHarvester.Parse.Model
 		[JsonProperty("phashOfFirstContentImage")]	// Should be phash, not pHash
 		public string PHashOfFirstContentImage { get; set; }
 
-		[JsonProperty("brandingProjectName")]
-		public string BrandingProjectName { get; set; }
+		[JsonProperty("brandingProjectName")] // Can't change to subscriptionDescriptor. It must match the field in the parse database.
+		public string SubscriptionDescriptor { get; set; }
 
 		[JsonProperty("draft")]
 		public readonly bool IsDraft;

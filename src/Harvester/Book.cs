@@ -317,9 +317,9 @@ namespace BloomHarvester
 				Model.Features = metaData.Features;
 			}
 
-			if (metaData.BrandingProjectName != Model.BrandingProjectName)
+			if (metaData.SubscriptionDescriptor != Model.SubscriptionDescriptor)
 			{
-				Model.BrandingProjectName = metaData.BrandingProjectName;
+				Model.SubscriptionDescriptor = metaData.SubscriptionDescriptor;
 			}
 
 			if (BloomPubVersion > 0)
