@@ -285,6 +285,7 @@ namespace BloomHarvesterTests
 
 			var metaData = new Bloom.Book.BookMetaData();
 			metaData.Features = new string[] { "talkingBook", "talkingBook:en" };
+			metaData.SubscriptionDescriptor = "SIL-LEAD";
 
 			// Test
 			book.UpdateMetadataIfNeeded(metaData);
@@ -294,9 +295,12 @@ namespace BloomHarvesterTests
 			var updateDict = pendingUpdates._updatedFieldValues;
 			Assert.IsTrue(updateDict.Any(), "PendingUpdates.Any()");
 
-			var expectedResult = new Dictionary<string, string>();
-			expectedResult.Add("updateSource", "\"bloomHarvester\"");   // This key should be present so Parse knows it's not a BloomDesktop upload
-			expectedResult.Add("features", "[\"talkingBook\",\"talkingBook:en\"]");
+			var expectedResult = new Dictionary<string, string>
+			{
+				{ "updateSource", "\"bloomHarvester\"" },   // This key should be present so Parse knows it's not a BloomDesktop upload
+				{ "features", "[\"talkingBook\",\"talkingBook:en\"]" },
+				{ "brandingProjectName", "\"SIL-LEAD\"" }
+			};
 			CollectionAssert.AreEquivalent(updateDict, expectedResult);
 		}
 	}

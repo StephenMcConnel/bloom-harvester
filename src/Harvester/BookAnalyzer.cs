@@ -121,6 +121,9 @@ namespace BloomHarvester
 			}
 		}
 
+		/// <summary>
+		/// This is called from the base (CollectionSettingsReconstructor) constructor.
+		/// </summary>
 		public override bool LoadFromUploadedSettings()
 		{
 			var uploadVersion = _dom.GetGeneratorVersion();
@@ -141,7 +144,7 @@ namespace BloomHarvester
 				Country = xdoc.SelectSingleNode("/Collection/Country")?.InnerText ?? "";
 				Province = xdoc.SelectSingleNode("/Collection/Province")?.InnerText ?? "";
 				District = xdoc.SelectSingleNode("/Collection/District")?.InnerText ?? "";
-				Branding = xdoc.SelectSingleNode("/Collection/BrandingProjectName")?.InnerText ?? "";
+				SubscriptionCode = GetSubscriptionCode(xdoc);
 				_bookshelf = GetBookShelfFromTagsIfPossible(xdoc.SelectSingleNode("/Collection/DefaultBookTags")?.InnerText ?? "");
 				return true;
 			}
@@ -149,6 +152,16 @@ namespace BloomHarvester
 			{
 				return false;
 			}
+		}
+
+		private string GetSubscriptionCode(XmlDocument xdoc)
+		{
+			// We expect to get SubscriptionCode starting with Bloom 6.1.
+			// Older books will come with BrandingProjectName instead.
+			var code = xdoc.SelectSingleNode("/Collection/SubscriptionCode")?.InnerText;
+			if (string.IsNullOrEmpty(code))
+				return xdoc.SelectSingleNode("/Collection/BrandingProjectName")?.InnerText ?? "";
+			return code;
 		}
 
 		private string GetBookShelfFromTagsIfPossible(string defaultTagsString)
@@ -542,6 +555,13 @@ namespace BloomHarvester
 			}
 		}
 
+		// Note that newer books (produced by Bloom 6.2 and later) store img elements under a div.bloom-canvas.
+		// Older books store img elements under a div.bloom-imageContainer.
+		const string contentBloomCanvasPath = "//div[contains(@class,'bloom-page') and contains(@class,'numberedPage')]//div[contains(@class,'bloom-canvas')]";
+		const string contentImageContainerPath = "//div[contains(@class,'bloom-page') and contains(@class,'numberedPage')]//div[contains(@class,'bloom-imageContainer')]";
+		const string coverBloomCanvasPath = "//div[contains(@class,'bloom-page') and @data-xmatter-page='frontCover']//div[contains(@class,'bloom-canvas')]";
+		const string coverImageContainerPath = "//div[contains(@class,'bloom-page') and @data-xmatter-page='frontCover']//div[contains(@class,'bloom-imageContainer')]";
+
 		/// <summary>
 		/// Finds the image to use when computing the perceptual hash for the book.
 		/// </summary>
@@ -551,30 +571,42 @@ namespace BloomHarvester
 		public string GetBestPHashImageSource()
 		{
 			// Find the first picture on a content page
-			// We use the numberedPage class to determine this now
-			// You could also try data-page-number, but it's not guaranteed to use numbers like "1", "2", "3"... the numbers may be written in the language of the book (BL-8346)
-			var firstContentImageContainerPath = "//div[contains(@class,'bloom-page')][contains(@class, 'numberedPage')]//div[contains(@class,'bloom-imageContainer')]";
-			var firstContentImageElement = _dom.SelectSingleNode($"{firstContentImageContainerPath}/img");
-			if (firstContentImageElement != null)
+			var imageElements = _dom.SafeSelectNodes($"{contentBloomCanvasPath}/img");
+			if (imageElements.Length == 0)
+				imageElements = _dom.SafeSelectNodes($"{contentImageContainerPath}/img");
+			for (int i = 0; i < imageElements.Length; ++i)
 			{
-				return firstContentImageElement.GetAttribute("src");
+				var src = imageElements[i].GetAttribute("src");
+				if (!String.IsNullOrEmpty(src) && src != "placeHolder.png")
+					return src;
 			}
-			var fallbackFirstContentImage = _dom.SelectSingleNode(firstContentImageContainerPath);
-			if (fallbackFirstContentImage != null)
+			var fallbackImgWrappers = _dom.SafeSelectNodes(contentBloomCanvasPath);
+			if (fallbackImgWrappers.Length == 0)
+				fallbackImgWrappers = _dom.SafeSelectNodes(contentImageContainerPath);
+			for (int i = 0; i < fallbackImgWrappers.Length; ++i)
 			{
-				return GetImageElementUrl(fallbackFirstContentImage)?.UrlEncoded;
+				var fallbackUrl = GetImageElementUrl(fallbackImgWrappers[i] as SafeXmlElement)?.UrlEncoded;
+				if (!String.IsNullOrEmpty(fallbackUrl) && fallbackUrl != "placeHolder.png")
+					return fallbackUrl;
 			}
 			// No content page images found.  Try the cover page
-			var coverImageContainerPath = "//div[contains(@class,'bloom-page') and @data-xmatter-page='frontCover']//div[contains(@class,'bloom-imageContainer')]";
-			var coverImg = _dom.SelectSingleNode($"{coverImageContainerPath}/img");
-			if (coverImg != null)
+			var coverImages = _dom.SafeSelectNodes($"{coverBloomCanvasPath}/img");
+			if (coverImages.Length == 0)
+				coverImages = _dom.SafeSelectNodes($"{coverImageContainerPath}/img");
+			for (int i = 0; i < coverImages.Length; ++i)
 			{
-				return coverImg.GetAttribute("src");
+				var src = coverImages[i].GetAttribute("src");
+				if (!String.IsNullOrEmpty(src) && src != "placeHolder.png")
+					return src;
 			}
-			var fallbackCoverImg = _dom.SelectSingleNode(coverImageContainerPath);
-			if (fallbackCoverImg != null)
+			var coverFallbackImgWrappers = _dom.SafeSelectNodes(coverBloomCanvasPath);
+			if (coverFallbackImgWrappers == null)
+				coverFallbackImgWrappers = _dom.SafeSelectNodes(coverImageContainerPath);
+			for (int i = 0; i < coverFallbackImgWrappers.Length; ++i)
 			{
-				return GetImageElementUrl(fallbackCoverImg)?.UrlEncoded;
+				var fallbackUrl = GetImageElementUrl(coverFallbackImgWrappers[i] as SafeXmlElement)?.UrlEncoded;
+				if (!String.IsNullOrEmpty(fallbackUrl) && fallbackUrl != "placeHolder.png")
+					return fallbackUrl;
 			}
 			// Nothing on the cover page either. Give up.
 			return null;

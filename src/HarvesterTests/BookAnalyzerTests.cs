@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Linq;
@@ -17,8 +17,8 @@ namespace BloomHarvesterTests
 		private BookAnalyzer _monolingualBookInBilingualCollectionAnalyzer;
 		private BookAnalyzer _monolingualBookInTrilingualCollectionAnalyzer;
 		private BookAnalyzer _bilingualBookInTrilingualCollectionAnalyzer;
-		private BookAnalyzer _emptyBrandingAnalyzer;
-		private BookAnalyzer _silleadBrandingAnalyzer;
+		private BookAnalyzer _emptySubscriptionAnalyzer;
+		private BookAnalyzer _silleadSubscriptionAnalyzer;
 		private XElement _twoLanguageCollection;
 		private XElement _threeLanguageCollection;
 		private XElement _threeLanguageCollectionUsingTwo;
@@ -26,9 +26,18 @@ namespace BloomHarvesterTests
 		private BookAnalyzer _epubCheckAnalyzer;
 		private BookAnalyzer _epubCheckAnalyzer2;
 
-		private const string kHtml = @"
+		private string GetBookHtml(string generatorVersion = null)
+
+		{
+			var generatorMeta = "";
+			if (generatorVersion != null)
+			{
+				generatorMeta = $@"<meta name='Generator' content='Bloom Version {generatorVersion} (apparent build date: 02-Apr-2025)'></meta>";
+			}
+			return @"
 <html>
 	<head>
+		" + generatorMeta + @"
 	</head>
 
 	<body>
@@ -57,6 +66,7 @@ namespace BloomHarvesterTests
 	    </div>
 	</body>
 </html>";
+		}
 
 		private string kHtml2 = @"
 <html>
@@ -113,11 +123,11 @@ namespace BloomHarvesterTests
 			_bilingualAnalyzer = new BookAnalyzer(GetBiLingualHtml(), GetMetaData());
 
 			var monoLingualHtml = GetMonoLingualHtml();
-			_emptyBrandingAnalyzer = new BookAnalyzer(monoLingualHtml, GetMetaData(@"""brandingProjectName"":"""","));
-			_silleadBrandingAnalyzer = new BookAnalyzer(monoLingualHtml, GetMetaData(@"""brandingProjectName"":""SIL-LEAD"","));
+			_emptySubscriptionAnalyzer = new BookAnalyzer(monoLingualHtml, GetMetaData(@"""brandingProjectName"":"""","));
+			_silleadSubscriptionAnalyzer = new BookAnalyzer(monoLingualHtml, GetMetaData(@"""brandingProjectName"":""SIL-LEAD"","));
 			_monolingualBookInTrilingualCollectionAnalyzer = new BookAnalyzer(monoLingualHtml, GetMetaData());
 
-			var monoLingualBookInBilingualCollectionHtml = String.Format(kHtml, kContentLanguage1Xml, "").Replace("bloom-content2 ", "");
+			var monoLingualBookInBilingualCollectionHtml = String.Format(GetBookHtml(), kContentLanguage1Xml, "").Replace("bloom-content2 ", "");
 			_monolingualBookInBilingualCollectionAnalyzer = new BookAnalyzer(monoLingualBookInBilingualCollectionHtml, GetMetaData());
 
 			_bilingualBookInTrilingualCollectionAnalyzer = new BookAnalyzer(kHtml2, GetMetaData2());
@@ -125,7 +135,7 @@ namespace BloomHarvesterTests
 			_twoLanguageCollection = XElement.Parse(_monolingualBookInBilingualCollectionAnalyzer.BloomCollection);
 			_threeLanguageCollection = XElement.Parse(_monolingualBookInTrilingualCollectionAnalyzer.BloomCollection);
 			_threeLanguageCollectionUsingTwo = XElement.Parse(_bilingualBookInTrilingualCollectionAnalyzer.BloomCollection);
-			_silleadCollection = XElement.Parse(_silleadBrandingAnalyzer.BloomCollection);
+			_silleadCollection = XElement.Parse(_silleadSubscriptionAnalyzer.BloomCollection);
 
 			_epubCheckAnalyzer = new BookAnalyzer(kHtmlUnmodifiedPages, GetMetaData());
 			_epubCheckAnalyzer2 = new BookAnalyzer(kHtmlModifiedPage, GetMetaData());
@@ -137,17 +147,17 @@ namespace BloomHarvesterTests
 		private const string kContentLanguage3Xml = "<div data-book='contentLanguage3' lang='*'>de</div>";
 		private string GetTriLingualHtml()
 		{
-			return String.Format(kHtml, kContentLanguage1Xml + kContentLanguage2Xml + kContentLanguage3Xml, kContentClassForLanguage3);
+			return String.Format(GetBookHtml(), kContentLanguage1Xml + kContentLanguage2Xml + kContentLanguage3Xml, kContentClassForLanguage3);
 		}
 
 		private string GetBiLingualHtml()
 		{
-			return String.Format(kHtml, kContentLanguage1Xml + kContentLanguage2Xml, kContentClassForLanguage3);
+			return String.Format(GetBookHtml(), kContentLanguage1Xml + kContentLanguage2Xml, kContentClassForLanguage3);
 		}
 
-		private string GetMonoLingualHtml()
+		private string GetMonoLingualHtml(string generatorVersion = null)
 		{
-			return String.Format(kHtml, kContentLanguage1Xml, kContentClassForLanguage3).Replace("bloom-content2 ", "");
+			return String.Format(GetBookHtml(generatorVersion), kContentLanguage1Xml, kContentClassForLanguage3).Replace("bloom-content2 ", "");
 		}
 
 		private string GetMetaData(string brandingJson = "")
@@ -281,21 +291,21 @@ namespace BloomHarvesterTests
 		}
 
 		[Test]
-		public void Branding_Specified()
+		public void SubscriptionCode_Specified()
 		{
-			Assert.That(_silleadBrandingAnalyzer.Branding, Is.EqualTo("SIL-LEAD"));
+			Assert.That(_silleadSubscriptionAnalyzer.SubscriptionCode, Is.EqualTo("SIL-LEAD-***-***"));
 		}
 
 		[Test]
-		public void Branding_Empty()
+		public void SubscriptionCode_Empty_IsNull()
 		{
-			Assert.That(_emptyBrandingAnalyzer.Branding, Is.EqualTo(""));
+			Assert.That(_emptySubscriptionAnalyzer.SubscriptionCode, Is.Null);
 		}
 
 		[Test]
-		public void Branding_Missing_SetToDefault()
+		public void SubscriptionCode_Missing_IsNull()
 		{
-			Assert.That(_monolingualBookInBilingualCollectionAnalyzer.Branding, Is.EqualTo("Default"));
+			Assert.That(_monolingualBookInBilingualCollectionAnalyzer.SubscriptionCode, Is.Null);
 		}
 
 		[Test]
@@ -335,9 +345,9 @@ namespace BloomHarvesterTests
 		}
 
 		[Test]
-		public void BookCollection_HasBranding()
+		public void BookCollection_HasSubscriptionCode()
 		{
-			Assert.That(_silleadCollection.Element("BrandingProjectName")?.Value, Is.EqualTo("SIL-LEAD"));
+			Assert.That(_silleadCollection.Element("SubscriptionCode")?.Value, Is.EqualTo("SIL-LEAD-***-***"));
 		}
 
 		[Test]
@@ -462,7 +472,7 @@ $@"<html>
 			string input = MakeStringOfXwords(numWords);
 			GetBookComputedLevel_BasicBook_ReturnsExpectedLevel(input, expectedLevel);
 		}
-		
+
 		private static string MakeStringOfXwords(int numWords)
 		{
 			var list = new List<string>();
@@ -638,6 +648,72 @@ $@"<html>
 			Assert.That(BookAnalyzer.GetWordCount(input), Is.EqualTo(1));
 		}
 		#endregion
+
+		// Expected from Bloom 6.1+
+		[TestCase("SubscriptionCode", "Test-Thing-***-***")]
+		// Expected from Bloom <=6.0
+		[TestCase("BrandingProjectName", "Test-Thing")]
+		public void LoadFromUploadedSettings_SettingsExist_LoadsSettingsCorrectly(string key, string value)
+		{
+			using (var tempFolder = new TemporaryFolder("BookAnalyzerTests_LoadFromUploadedSettings_SettingsExist_LoadsSettingsCorrectly"))
+			{
+				// Create the necessary directory structure
+				var collectionFilesDir = Path.Combine(tempFolder.FolderPath, "collectionFiles");
+				Directory.CreateDirectory(collectionFilesDir);
+
+				// Create a sample collection settings file
+				var uploadCollectionSettingsPath = Path.Combine(collectionFilesDir, "book.uploadCollectionSettings");
+				var collectionSettings = $@"<?xml version='1.0' encoding='utf-8'?>
+<Collection version='0.2'>
+  <Language1Iso639Code>sw</Language1Iso639Code>
+  <Language2Iso639Code>en</Language2Iso639Code>
+  <Language3Iso639Code>fr</Language3Iso639Code>
+  <SignLanguageIso639Code>sgn</SignLanguageIso639Code>
+  <Language1Name>Swahili</Language1Name>
+  <Language2Name>English</Language2Name>
+  <Language3Name>French</Language3Name>
+  <SignLanguageName>Sign Language</SignLanguageName>
+  <Country>Tanzania</Country>
+  <Province>Arusha</Province>
+  <District>Monduli</District>
+  <{key}>{value}</{key}>
+  <DefaultBookTags>bookshelf:test</DefaultBookTags>
+</Collection>";
+				File.WriteAllText(uploadCollectionSettingsPath, collectionSettings);
+
+				var analyzer = new BookAnalyzer(GetMonoLingualHtml("6.1.0"), GetMetaData(), tempFolder.FolderPath);
+
+				// System under test - load settings
+				var result = analyzer.LoadFromUploadedSettings();
+
+				// Verification
+				Assert.That(result, Is.True, "LoadFromUploadedSettings should return true when a settings file exists");
+				Assert.That(analyzer.Language1Code, Is.EqualTo("sw"), "Language1Code should be loaded from settings");
+				Assert.That(analyzer.Language2Code, Is.EqualTo("en"), "Language2Code should be loaded from settings");
+				Assert.That(analyzer.Language3Code, Is.EqualTo("fr"), "Language3Code should be loaded from settings");
+				Assert.That(analyzer.SignLanguageCode, Is.EqualTo("sgn"), "SignLanguageCode should be loaded from settings");
+				Assert.That(analyzer.Country, Is.EqualTo("Tanzania"), "Country should be loaded from settings");
+				Assert.That(analyzer.Province, Is.EqualTo("Arusha"), "Province should be loaded from settings");
+				Assert.That(analyzer.District, Is.EqualTo("Monduli"), "District should be loaded from settings");
+				Assert.That(analyzer.SubscriptionCode, Is.EqualTo(value), "SubscriptionCode should be loaded from settings");
+				Assert.That(analyzer.GetBookshelf(), Is.EqualTo("bookshelf:test"), "Bookshelf should be loaded from settings");
+			}
+		}
+
+		[Test]
+		public void LoadFromUploadedSettings_NoSettingsExist_ReturnsFalse()
+		{
+			using (var tempFolder = new TemporaryFolder("BookAnalyzerTests_LoadFromUploadedSettings_NoSettingsExist_ReturnsFalse"))
+			{
+				var analyzer = new BookAnalyzer(GetMonoLingualHtml(), GetMetaData(), tempFolder.FolderPath);
+
+				// System under test - try to load settings when none exist
+				var result = analyzer.LoadFromUploadedSettings();
+
+				// Verification
+				Assert.That(result, Is.False, "LoadFromUploadedSettings should return false when no settings file exists");
+			}
+		}
 
 		private const string kHtmlUnmodifiedPages = @"<html>
   <head>
