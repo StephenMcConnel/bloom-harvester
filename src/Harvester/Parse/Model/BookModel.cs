@@ -58,6 +58,7 @@ namespace BloomHarvester.Parse.Model
 				"Show",
 				"SubscriptionDescriptor",
 				"PHashOfFirstContentImage",
+				"BookHashFromImages",
 				"BloomPUBVersion"
 			});
 		}
