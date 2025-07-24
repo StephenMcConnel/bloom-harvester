@@ -442,7 +442,13 @@ namespace BloomHarvesterTests
 
 			var harvester = Substitute.ForPartsOf<Harvester>(options, EnvironmentSetting.Local, identifier, _fakeParseClient, _fakeBloomS3Client, _fakeS3UploadClient, _fakeDownload, _fakeIssueReporter, _logger, _fakeBloomCli, _fakeFontChecker, _fakeDiskSpaceManager, logEnvironment, _fakeFileIO);
 
-			harvester.Configure().GetAnalyzer(default).ReturnsForAnyArgs(bookAnalyzer ?? Substitute.For<IBookAnalyzer>());
+			if (bookAnalyzer == null)
+			{
+				// Setup a mock which returns the parameters for the normal case
+				bookAnalyzer = Substitute.For<IBookAnalyzer>();
+				bookAnalyzer.Configure().GetBestPHashImageSources().Returns( new List<string>() );
+			}
+			harvester.Configure().GetAnalyzer(default).ReturnsForAnyArgs(bookAnalyzer);
 
 			return harvester;
 		}
@@ -704,7 +710,7 @@ namespace BloomHarvesterTests
 
 			var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
 			fakeAnalyzer.Language1Code.Returns("de");
-			fakeAnalyzer.Configure().GetBestPHashImageSource().Returns("test.png");	// any filename is okay except placeholder.png
+			fakeAnalyzer.Configure().GetBestPHashImageSources().Returns(new List<string>() { "test.png" }); // any filename is okay except placeholder.png
 			fakeAnalyzer.Configure().ComputeImageHash(default).ReturnsForAnyArgs(args => (ulong)0x123456789ABCDEF);
 			var fakeFileIO = Substitute.For<IFileIO>();
 
@@ -762,13 +768,14 @@ namespace BloomHarvesterTests
 				((JObject)socialShowInfo).TryGetValue("harvester", out JToken socialShowInfoSetByHarvester);
 				Assert.That(socialShowInfoSetByHarvester.Value<bool>(), Is.True, "\"social\" show info should both exist and be set to true");
 
-				// Verify the phash field
+				// Verify the hash fields
 				Assert.That(book.Model.PHashOfFirstContentImage, Is.EqualTo("0123456789ABCDEF"), "phash should be set to expected value");
+				Assert.That(book.Model.BookHashFromImages, Is.EqualTo("1-0123456789ABCDEF"), "book hash should be set to expected value");
 
 				_fakeParseClient.ReceivedWithAnyArgs(2).UpdateObject("books", "FakeObjectId", "...");
 
 				// This may be too fragile to keep.  It's a pity there isn't a way to get the arguments back to check inside them instead of only exact matching...
-				var updateJson = "{\"harvestState\":\"Failed\",\"harvestLog\":[\"Error: MissingFont - madeUpFontName\",\"Info: ArtifactSuitability - No ePUB/BloomPub because of missing or invalid font(s)\"],\"phashOfFirstContentImage\":\"0123456789ABCDEF\",\"show\":{\"social\":{\"harvester\":true},\"epub\":{\"langTag\":\"de\",\"harvester\":false},\"bloomReader\":{\"harvester\":false},\"readOnline\":{\"harvester\":false},\"bloomSource\":{\"harvester\":false},\"jsonTexts\":{\"harvester\":false},\"pdf\":{\"langTag\":\"de\",\"exists\":false},\"shellbook\":{\"harvester\":true}},\"updateSource\":\"bloomHarvester\"}";
+				var updateJson = "{\"harvestState\":\"Failed\",\"harvestLog\":[\"Error: MissingFont - madeUpFontName\",\"Info: ArtifactSuitability - No ePUB/BloomPub because of missing or invalid font(s)\"],\"phashOfFirstContentImage\":\"0123456789ABCDEF\",\"bookHashFromImages\":\"1-0123456789ABCDEF\",\"show\":{\"social\":{\"harvester\":true},\"epub\":{\"langTag\":\"de\",\"harvester\":false},\"bloomReader\":{\"harvester\":false},\"readOnline\":{\"harvester\":false},\"bloomSource\":{\"harvester\":false},\"jsonTexts\":{\"harvester\":false},\"pdf\":{\"langTag\":\"de\",\"exists\":false},\"shellbook\":{\"harvester\":true}},\"updateSource\":\"bloomHarvester\"}";
 				_fakeParseClient.Received(1).UpdateObject("books", "FakeObjectId", updateJson);
 			}
 		}
@@ -1248,6 +1255,7 @@ namespace BloomHarvesterTests
 			var options = GetHarvesterOptionsForProcessOneBookTests();
 			var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
 			fakeAnalyzer.Language1Code.Returns("de");
+			fakeAnalyzer.Configure().GetBestPHashImageSources().Returns(new List<string>());
 
 			using (var harvester = GetSubstituteHarvester(options, bookAnalyzer: fakeAnalyzer))
 			{
@@ -1301,6 +1309,8 @@ namespace BloomHarvesterTests
 			// And that's how the code knows we should not set (or should unset) the langTags.
 			//var fakeAnalyzer = Substitute.For<IBookAnalyzer>();
 			//fakeAnalyzer.Language1Code.Returns("de");
+			//fakeAnalyzer.Configure().GetBestPHashImageSources().Returns(new List<string>());
+
 
 			using (var harvester = GetSubstituteHarvester(options/*, bookAnalyzer: fakeAnalyzer*/))
 			{
