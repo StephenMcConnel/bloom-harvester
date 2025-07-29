@@ -5,7 +5,6 @@ using BloomHarvester.Parse;
 using BloomHarvester.WebLibraryIntegration;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Web;
 
 namespace BloomHarvester
@@ -33,7 +32,7 @@ namespace BloomHarvester
 		private BookHashUpdater(UpdateHashesInParseOptions options)
 		{
 			_options = options;
-			_environment = EnvironmentUtils.GetEnvOrFallback(options.Environment, EnvironmentSetting.Unknown);
+			_environment = options.Environment;
 			_parseClient = new ParseClient(_environment, _logger);
 			(string downloadBucketName, string uploadBucketName) = Harvester.GetS3BucketNames(_environment);
 			_s3DownloadClient = new HarvesterS3Client(downloadBucketName, _environment, true);
@@ -78,8 +77,9 @@ namespace BloomHarvester
 
 				_logger.TrackEvent("ProcessOneBook Start");
 				string decodedUrl = HttpUtility.UrlDecode(book.Model.BaseUrl);
+				// For this process, we usually want to skip downloads as much as possible.
 				var collectionBookDir = Harvester.DownloadBookAndCopyToCollectionFolder(book, decodedUrl, book.Model,
-					_logger, null, _downloadClient, _environment, _options.ForceDownload, false);
+					_logger, null, _downloadClient, _environment, _options.ForceDownload, true);
 				var analyzer = BookAnalyzer.FromFolder(collectionBookDir);
 				book.Analyzer = analyzer;
 				var logEntries = new List<LogEntry>();
