@@ -82,10 +82,27 @@ namespace BloomHarvester.WebLibraryIntegration
 			// We may be able to consolidate down to one set of keys for the harvester user (which
 			// is configured to have appropriate access to all buckets) once we get back to having
 			// all the buckets in one account/project (i.e., sil-lead).
-			return new AmazonS3Client(
-				Environment.GetEnvironmentVariable($"Bloom{bucketType}S3Key{_s3Environment}"),
-				Environment.GetEnvironmentVariable($"Bloom{bucketType}S3SecretKey{_s3Environment}"),
-				RegionEndpoint.USEast1);
+			var publicKey = Environment.GetEnvironmentVariable($"Bloom{bucketType}S3Key{_s3Environment}");
+			var secretKey = Environment.GetEnvironmentVariable($"Bloom{bucketType}S3SecretKey{_s3Environment}");
+			// The following mess is only needed by the Git Bash shell as far as I know.  I would
+			// like to talk to the programmer who thought it was a good idea to modify the values
+			// of all environment variables whose values start with a /.
+			var exepath = Environment.GetEnvironmentVariable("EXEPATH");
+			if (!string.IsNullOrEmpty(exepath))
+			{
+				exepath = exepath.Replace("\\", "/");
+				if (secretKey.StartsWith(exepath + "/", StringComparison.OrdinalIgnoreCase))
+				{
+					Console.WriteLine("Adjusting secret key for environmental pollution.");
+					secretKey = secretKey.Substring(exepath.Length);
+				}
+				if (publicKey.StartsWith(exepath + "/", StringComparison.OrdinalIgnoreCase))
+				{
+					Console.WriteLine("Adjusting public key for environmental pollution.");
+					publicKey = publicKey.Substring(exepath.Length);
+				}
+			}
+			return new AmazonS3Client(publicKey, secretKey,	RegionEndpoint.USEast1);
 		}
 
 		/// <summary>
