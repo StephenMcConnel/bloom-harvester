@@ -813,6 +813,28 @@ namespace BloomHarvester
 			return UpdateHashes(book, analyzer, downloadBookDir, logEntries, _logger, _issueReporter);
 		}
 
+		/// <summary>
+		/// The book hash is based on the perceptual hashes of a few of images in the book.
+		/// Originally, we used only the first image found on a content page, but that proved
+		/// to generate a multitude of false positives (different books with the same hash)
+		/// for some projects.  We decided to use more images to reduce the chance of false
+		/// positives, realizing that it would increase the chance of false negatives (same
+		/// book with different hashes).  We settled on using the first, second, middle, second
+		/// to last, and last images of the book, computing the perceptual hash of each and
+		/// combining them with a bitwise shift and XOR operation.  The final hash is the number
+		/// of content images, followed by a dash, followed by the combined hash in hexadecimal
+		/// notation.  We know that this is not perfect, but it seems to be a reasonable
+		/// compromise.  If a translator changes or removes images, then the hash is different
+		/// from the original book, but that is probably acceptable.  If they add images, the
+		/// same thinking applies.  False positives are much more unlikely with this approach
+		/// than false negatives.  The original approach of using only the first image probably
+		/// erred too far on the side of preventing false negatives and accepting false positives.
+		/// </summary>
+		/// <remarks>
+		/// See https://issues.bloomlibrary.org/youtrack/issue/BL-14980 for more information.
+		/// It took several days to recompute the hashes for all the books in the database,
+		/// running lots of several hundred to a couple of thousand at a time.
+		/// </remarks>
 		internal static bool UpdateHashes(Book book, IBookAnalyzer analyzer, string downloadBookDir, IList<LogEntry> logEntries,
 			IMonitorLogger logger, IIssueReporter issueReporter)
 		{
